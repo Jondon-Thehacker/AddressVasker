@@ -13,6 +13,7 @@ using System.Linq;
 using System.Data;
 using Client;
 using static System.Net.Mime.MediaTypeNames;
+using static Client.Program;
 
 
 namespace Client
@@ -24,7 +25,6 @@ namespace Client
             return new SqlParameter(name, value);
         }
     }
-
 
     static class nongeneric
     {
@@ -53,66 +53,145 @@ namespace Client
         }
     }
 
-    public class Program
+    public class ApiService
     {
-        static void Main(string[] args)
+        private readonly HttpClient _client;
+
+        public ApiService(HttpClient client)
         {
-            HttpClient client = new HttpClient();
-            client.Timeout = new TimeSpan(0, 20, 0); // 20 minutter til store downloads
-                                                     //client.BaseAddress = new Uri("http://dawa.aws.dk/");
-            client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
-            bool debugEnabled = false;
-            bool consoleOutputOnly = false;
-            bool consoleOutputDemo = false;
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString; //"Data Source=LBFSQL08\\DATAPLATFORM_DEV; Initial Catalog = Adressevasker;Integrated Security=SSPI";
-
-            if (args != null)
-            {
-                for (int i = 0; i < args.Length; i++) // Loop through array
-                {
-                    if (args[i].ToLower() == "setup")
-                    {
-                        //Opretter de nødvendige database/tabeller for løsningen på serveren, hvis de ikke findes.
-                        //afslutter dernæst programmet.
-                        opretDatabaseArtifakter();
-                        return;
-                    }
-                    if (args[i].ToLower() == "retry")
-                    {
-                        //Tager alle de fejlede rækker fra dbo.Output, og lægger dem tilbage i dbo.Input. Rækkerne får dog nyt internt ID.
-                        //genkør de fejlede hvis der ikke er andre instancer af programmet som kører i forvejen på pc'en.
-                        if (isOtherInstanceRunning() == false)
-                        {
-                            Console.WriteLine("Genkørsel igangsat");
-                            retryFailed();
-
-                        }
-                    }
-                    if (args[i].ToLower() == "debug")
-                    {
-                        debugEnabled = true;
-                    }
-                    if (args[i].ToLower() == "consoleDemo")
-                    {
-                        consoleOutputDemo = true;
-                    }
-                    if (args[i].ToLower() == "console")
-                    {
-                        consoleOutputOnly = true;
-                    }
-                }
-
-            }
-
-
-            SettingAPI(debugEnabled, consoleOutputOnly, consoleOutputDemo, client);
-            SettingDatabaseConnection(connetionString, client);
-
-
-            Console.ReadLine();
+            _client = client;
         }
 
-        static void SettingAPI(bool debugEnabled, bool consoleOutputOnly, bool consoleOutputDemo, HttpClient client)
+        public AdresseResultat GetAdresseVask(string query)
+        {
+            var i = 4; //4 tries to find a result. remove 1 argument from the address-query request for each try.
+            string getResponseAddress = null;
+            string getResponseGps = null;
+            try
+            {
+                while (i > 0)
+                {
+                    string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
+                    Console.WriteLine("GET " + url);
+
+                    HttpResponseMessage response = _client.GetAsync(url).Result;
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = response.Content.ReadAsStringAsync().Result;
+
+                    //Console.WriteLine(responseBody);
+                    var settings = new JsonSerializerSettings
+                    {
+                        NullValueHandling = NullValueHandling.Ignore,
+                        MissingMemberHandling = MissingMemberHandling.Ignore
+                    };
+
+                    DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
+
+                    if (adresseJson.resultater.Count != 0)
+                    {
+                        string kategori = adresseJson.kategori.EmptyIfNull().ToString();
+
+                        string status = "0";
+                        string DarID = null;
+                        string vejnavn = null;
+                        string husnr = null;
+                        string etage = null;
+                        string dør = null;
+                        string postnr = null;
+                        string postnrnavn = null;
+                        string gpsHref = null;
+                        double utm_x = 0;
+                        double utm_y = 0;
+                        string kommentar = null;
+
+                        // Get address information from aktueladresse or adresse json tags
+                        if (adresseJson.resultater[0].aktueladresse != null)
+                        {
+                            DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
+                            vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString();
+                            husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString();
+                            etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString();
+                            dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString();
+                            postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString();
+                            postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString();
+                            status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString();
+                            gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString();
+                        }
+                        else
+                        {
+                            DarID = adresseJson.resultater[0].adresse.id.EmptyIfNull().ToString();
+                            vejnavn = adresseJson.resultater[0].adresse.vejnavn.EmptyIfNull().ToString();
+                            husnr = adresseJson.resultater[0].adresse.husnr.EmptyIfNull().ToString();
+                            etage = adresseJson.resultater[0].adresse.etage.EmptyIfNull().ToString();
+                            dør = adresseJson.resultater[0].adresse.dør.EmptyIfNull().ToString();
+                            postnr = adresseJson.resultater[0].adresse.postnr.EmptyIfNull().ToString();
+                            postnrnavn = adresseJson.resultater[0].adresse.postnrnavn.EmptyIfNull().ToString();
+                            status = adresseJson.resultater[0].adresse.status.ToString();
+                            gpsHref = adresseJson.resultater[0].adresse.href.EmptyIfNull().ToString();
+                            kommentar = "Ingen aktuel adresse";
+                        }
+                        getResponseAddress = _client.BaseAddress.ToString() + url;
+
+                        Console.WriteLine("Kategori: " + kategori);
+                        Console.WriteLine("DAR-ID: " + DarID);
+                        Console.WriteLine("vejnavn: " + vejnavn);
+                        Console.WriteLine("husnr: " + husnr);
+                        Console.WriteLine("etage: " + etage);
+                        Console.WriteLine("dør: " + dør);
+                        Console.WriteLine("postnr: " + postnr);
+                        Console.WriteLine("postnrnavn: " + postnrnavn);
+                        Console.WriteLine("status: " + status);
+                        Console.WriteLine("getResponse: " + getResponseAddress);
+
+                        // Lookup geo coordinates
+                        if ((status != "2" || status != "4") && gpsHref != "")
+                        {
+                            getResponseGps = gpsHref + "?srid=25832";
+                            try
+                            {
+                                HttpResponseMessage response1 = _client.GetAsync(getResponseGps).Result;
+                                response1.EnsureSuccessStatusCode();
+                                string responseBody1 = response1.Content.ReadAsStringAsync().Result;
+
+                                DawaDotnetClient2.Root koordinatJson = JsonConvert.DeserializeObject<DawaDotnetClient2.Root>(responseBody1, settings);
+
+                                utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
+                                utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
+                            }
+                            catch (HttpRequestException e)
+                            {
+                                Console.WriteLine("Fejlbesked ved hentning af gps koordinater:{0} ", e.Message);
+                                string fejlbesked = "Fejl ved gps data: " + e.Message;
+                            }
+
+                        }
+                        Console.WriteLine("lat: " + utm_x);
+                        Console.WriteLine("long: " + utm_y);
+
+                        // Return results
+                        AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
+
+                        i = 0;
+                        return o;
+                    }
+
+                    //if no address found from DAWA, remove 1 argument from the address-query request
+                    query = query.Substring(0, query.LastIndexOf(" ") < 0 ? 0 : query.LastIndexOf(" "));
+                    i = i - 1;
+                }
+                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = "Fandt ingen adresse match hos Dawa.", apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
+
+            }
+            catch (HttpRequestException e)
+            {
+                Console.WriteLine("Message :{0} ", e.Message);
+                string fejlbesked = "Fejl: " + e.Message;
+
+                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
+
+            }
+        }
+        public void SettingAPI(bool debugEnabled, bool consoleOutputOnly, bool consoleOutputDemo, HttpClient client)
 
         {
             if (consoleOutputOnly == true)
@@ -122,13 +201,131 @@ namespace Client
                 {
                     Console.Write("Indtast Adresse: ");
                     string var = Console.ReadLine();
-                    GetAdresseVask(client, "betegnelse=" + var); //example of a working address
+                    GetAdresseVask("betegnelse=" + var); //example of a working address
                     Console.WriteLine("\n");
                 }
             }
         }
 
-        static void SettingDatabaseConnection(string connetionString, HttpClient client)
+    }
+
+    public class DatabaseService
+    {
+        private readonly string _connectionString;
+        private readonly ApiService _apiService;
+
+        public DatabaseService(string connectionString, ApiService apiService)
+        {
+            _connectionString = connectionString;
+            _apiService = apiService;
+        }
+
+        private bool LoopToContinue(string connetionString)
+        {
+            using (SqlConnection conn = new SqlConnection(connetionString))
+            {
+                string queryString1 = "SELECT top 1 [ID] FROM [dbo].[Input] WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "','" + BehandlingsStatus.Behandler.ToString() + "')";
+                SqlCommand command = new SqlCommand(queryString1, conn);
+
+                //Console.WriteLine("Openning Connection ...");
+                conn.Open();
+                //Console.WriteLine("Connection successful!");
+
+                SqlDataReader reader = command.ExecuteReader();
+
+                if (!reader.HasRows)
+                {
+                    Console.WriteLine("No rows!!! Exit");
+                    Console.Read();
+                    return false;
+                }
+                return true;
+
+            }
+        }
+
+        private int submitQuery(string q, SqlParameter param)
+        {
+            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
+
+            using (SqlConnection conn = new SqlConnection(connetionString))
+            {
+                string queryString = q;
+                Console.WriteLine(queryString);
+                try
+                {
+                    //Console.WriteLine("Openning Connection ...");
+                    conn.Open();
+                    //Console.WriteLine("Connection successful!");
+                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
+                    {
+                        if (param != null)
+                        {
+                            command.Parameters.Add(param);
+
+                        }
+                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
+
+                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
+                        return InsertRowsAffected;
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error: " + e.Message);
+                    return 0;
+                }
+            }
+        }
+        private int submitQuery2(string q, SqlParameter[] paramtere)
+        {
+            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
+
+            using (SqlConnection conn = new SqlConnection(connetionString))
+            {
+                string queryString = q;
+                //Console.WriteLine(queryString);
+                try
+                {
+                    //Console.WriteLine("Openning Connection ...");
+                    conn.Open();
+                    //Console.WriteLine("Connection successful!");
+                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
+                    {
+
+                        command.Parameters.AddRange(paramtere);
+
+
+                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
+
+                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
+                        return InsertRowsAffected;
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error: " + e.Message);
+                    string queryUpdate = "UPDATE [dbo].[input] SET STATUS='" + BehandlingsStatus.Fejlet.ToString() + "' WHERE ID=@ID";
+
+                    foreach (SqlParameter i in paramtere)
+                    {
+                        if (i.ParameterName == "@SystemID")
+                        {
+                            SqlParameter param = new SqlParameter("@ID", i.Value.ToString()) { SqlDbType = SqlDbType.Int };
+                            submitQuery(queryUpdate, param);
+                        }
+                    }
+
+
+                    return 0;
+                }
+            }
+        }
+
+
+        public void SettingDatabaseConnection()
         {
             //create instanace of database connection
             string ID = null;
@@ -144,12 +341,13 @@ namespace Client
             DateTime dato = DateTime.Now;
 
 
+
             //husk at lave om for loop
             //int i = 0;
-            while (LoopToContinue(connetionString))
+            while (LoopToContinue(_connectionString))
             {
                 //Continue
-                using (SqlConnection conn = new SqlConnection(connetionString))
+                using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     string queryString1 = "UPDATE TOP (1) [dbo].[Input] WITH ( readpast, rowlock)" + //(updlock, readpast, rowlock)
                                             "SET STATUS = '" + BehandlingsStatus.Behandler.ToString() + "', [Dato]=getdate()" +
@@ -214,7 +412,7 @@ namespace Client
                 //Hent adresse
 
                 string requestStatus = BehandlingsStatus.Behandlet.ToString();
-                AdresseResultat adr = Adresse.ToAlphaNum() != "" ? GetAdresseVask(client, "betegnelse=" + AdresseBetegnelse) : new AdresseResultat(); //avoid api call to address that are invalid (blank)
+                AdresseResultat adr = Adresse.ToAlphaNum() != "" ? _apiService.GetAdresseVask("betegnelse=" + AdresseBetegnelse) : new AdresseResultat(); //avoid api call to address that are invalid (blank)
                 if (adr.darID is null || Adresse.ToAlphaNum() == "")
                 {
                     requestStatus = BehandlingsStatus.Fejlet.ToString();
@@ -306,6 +504,9 @@ namespace Client
                     new SqlParameter("@apiCallGPS",adr.apiCallGPS.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
                 };
 
+
+
+
                 InsertRowsAffected = submitQuery2(queryString, paramtere);
                 //only delete the original row if data has been inserted to output
                 if (InsertRowsAffected > 0)
@@ -317,309 +518,27 @@ namespace Client
 
                 }
 
-                //Console.WriteLine(i);
-                //i++;
             }
 
         }
 
-        public static AdresseResultat GetAdresseVask(HttpClient client, string query)
+
+    }
+
+    public class Program
+    {
+        static void Main(string[] args)
         {
-            var i = 4; //4 tries to find a result. remove 1 argument from the address-query request for each try.
-            string getResponseAddress = null;
-            string getResponseGps = null;
-            try
-            {
-                while (i > 0)
-                {
-                    string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
-                    Console.WriteLine("GET " + url);
+            HttpClient client = new HttpClient();
+            client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
 
-                    HttpResponseMessage response = client.GetAsync(url).Result;
-                    response.EnsureSuccessStatusCode();
-                    string responseBody = response.Content.ReadAsStringAsync().Result;
+            string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
-                    //Console.WriteLine(responseBody);
-                    var settings = new JsonSerializerSettings
-                    {
-                        NullValueHandling = NullValueHandling.Ignore,
-                        MissingMemberHandling = MissingMemberHandling.Ignore
-                    };
+            ApiService apiService = new ApiService(client);
 
-                    DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
+            DatabaseService databaseService = new DatabaseService(connectionString, apiService);
 
-                    if (adresseJson.resultater.Count != 0)
-                    {
-                        string kategori = adresseJson.kategori.EmptyIfNull().ToString();
-
-                        string status = "0";
-                        string DarID = null;
-                        string vejnavn = null;
-                        string husnr = null;
-                        string etage = null;
-                        string dør = null;
-                        string postnr = null;
-                        string postnrnavn = null;
-                        string gpsHref = null;
-                        double utm_x = 0;
-                        double utm_y = 0;
-                        string kommentar = null;
-
-                        // Get address information from aktueladresse or adresse json tags
-                        if (adresseJson.resultater[0].aktueladresse != null)
-                        {
-                            DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
-                            vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString();
-                            husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString();
-                            etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString();
-                            dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString();
-                            postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString();
-                            postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString();
-                            status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString();
-                            gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString();
-                        }
-                        else
-                        {
-                            DarID = adresseJson.resultater[0].adresse.id.EmptyIfNull().ToString();
-                            vejnavn = adresseJson.resultater[0].adresse.vejnavn.EmptyIfNull().ToString();
-                            husnr = adresseJson.resultater[0].adresse.husnr.EmptyIfNull().ToString();
-                            etage = adresseJson.resultater[0].adresse.etage.EmptyIfNull().ToString();
-                            dør = adresseJson.resultater[0].adresse.dør.EmptyIfNull().ToString();
-                            postnr = adresseJson.resultater[0].adresse.postnr.EmptyIfNull().ToString();
-                            postnrnavn = adresseJson.resultater[0].adresse.postnrnavn.EmptyIfNull().ToString();
-                            status = adresseJson.resultater[0].adresse.status.ToString();
-                            gpsHref = adresseJson.resultater[0].adresse.href.EmptyIfNull().ToString();
-                            kommentar = "Ingen aktuel adresse";
-                        }
-                        getResponseAddress = client.BaseAddress.ToString() + url;
-
-                        Console.WriteLine("Kategori: " + kategori);
-                        Console.WriteLine("DAR-ID: " + DarID);
-                        Console.WriteLine("vejnavn: " + vejnavn);
-                        Console.WriteLine("husnr: " + husnr);
-                        Console.WriteLine("etage: " + etage);
-                        Console.WriteLine("dør: " + dør);
-                        Console.WriteLine("postnr: " + postnr);
-                        Console.WriteLine("postnrnavn: " + postnrnavn);
-                        Console.WriteLine("status: " + status);
-                        Console.WriteLine("getResponse: " + getResponseAddress);
-
-                        // Lookup geo coordinates
-                        if ((status != "2" || status != "4") && gpsHref != "")
-                        {
-                            getResponseGps = gpsHref + "?srid=25832";
-                            try
-                            {
-                                HttpResponseMessage response1 = client.GetAsync(getResponseGps).Result;
-                                response1.EnsureSuccessStatusCode();
-                                string responseBody1 = response1.Content.ReadAsStringAsync().Result;
-
-                                DawaDotnetClient2.Root koordinatJson = JsonConvert.DeserializeObject<DawaDotnetClient2.Root>(responseBody1, settings);
-
-                                utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
-                                utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
-                            }
-                            catch (HttpRequestException e)
-                            {
-                                Console.WriteLine("Fejlbesked ved hentning af gps koordinater:{0} ", e.Message);
-                                string fejlbesked = "Fejl ved gps data: " + e.Message;
-                            }
-
-                        }
-                        Console.WriteLine("lat: " + utm_x);
-                        Console.WriteLine("long: " + utm_y);
-
-                        // Return results
-                        AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-                        i = 0;
-                        return o;
-                    }
-
-                    //if no address found from DAWA, remove 1 argument from the address-query request
-                    query = query.Substring(0, query.LastIndexOf(" ") < 0 ? 0 : query.LastIndexOf(" "));
-                    i = i - 1;
-                }
-                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = "Fandt ingen adresse match hos Dawa.", apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
-            catch (HttpRequestException e)
-            {
-                Console.WriteLine("Message :{0} ", e.Message);
-                string fejlbesked = "Fejl: " + e.Message;
-
-                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
-        }
-
-        public static void opretDatabaseArtifakter()
-        {
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
-            String Root = Directory.GetCurrentDirectory();
-
-            Console.WriteLine(Root);
-            string script = File.ReadAllText(Root + "\\CreateDatabaseObjects.sql");
-            Console.WriteLine(script);
-
-            SqlConnection conn = new SqlConnection(connetionString);
-            try
-            {
-                //Console.WriteLine("Openning Connection ...");
-                conn.Open();
-                //Console.WriteLine("Connection successful!");
-                using (SqlCommand command = new SqlCommand(script, conn)) //pass SQL query created above and connection
-                {
-                    int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
-                    Console.WriteLine(InsertRowsAffected + " row(s) updated");
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error: " + e.Message);
-            }
-
-        }
-        public static bool LoopToContinue(string connetionString)
-        {
-            using (SqlConnection conn = new SqlConnection(connetionString))
-            {
-                string queryString1 = "SELECT top 1 [ID] FROM [dbo].[Input] WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "','" + BehandlingsStatus.Behandler.ToString() + "')";
-                SqlCommand command = new SqlCommand(queryString1, conn);
-
-                //Console.WriteLine("Openning Connection ...");
-                conn.Open();
-                //Console.WriteLine("Connection successful!");
-
-                SqlDataReader reader = command.ExecuteReader();
-
-                if (!reader.HasRows)
-                {
-                    Console.WriteLine("No rows!!! Exit");
-                    Console.Read();
-                    return false;
-                }
-                return true;
-
-            }
-        }
-        public static int submitQuery(string q, SqlParameter param)
-        {
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            using (SqlConnection conn = new SqlConnection(connetionString))
-            {
-                string queryString = q;
-                Console.WriteLine(queryString);
-                try
-                {
-                    //Console.WriteLine("Openning Connection ...");
-                    conn.Open();
-                    //Console.WriteLine("Connection successful!");
-                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
-                    {
-                        if (param != null)
-                        {
-                            command.Parameters.Add(param);
-
-                        }
-                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
-
-                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
-                        return InsertRowsAffected;
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error: " + e.Message);
-                    return 0;
-                }
-            }
-        }
-        public static int submitQuery2(string q, SqlParameter[] paramtere)
-        {
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            using (SqlConnection conn = new SqlConnection(connetionString))
-            {
-                string queryString = q;
-                //Console.WriteLine(queryString);
-                try
-                {
-                    //Console.WriteLine("Openning Connection ...");
-                    conn.Open();
-                    //Console.WriteLine("Connection successful!");
-                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
-                    {
-
-                        command.Parameters.AddRange(paramtere);
-
-
-                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
-
-                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
-                        return InsertRowsAffected;
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error: " + e.Message);
-                    string queryUpdate = "UPDATE [dbo].[input] SET STATUS='" + BehandlingsStatus.Fejlet.ToString() + "' WHERE ID=@ID";
-
-                    foreach (SqlParameter i in paramtere)
-                    {
-                        if (i.ParameterName == "@SystemID")
-                        {
-                            SqlParameter param = new SqlParameter("@ID", i.Value.ToString()) { SqlDbType = SqlDbType.Int };
-                            submitQuery(queryUpdate, param);
-                        }
-                    }
-
-
-                    return 0;
-                }
-            }
-        }
-        public static void retryFailed()
-        {
-            string queryString = "DELETE FROM dbo.Output " +
-                                 "OUTPUT " +
-                                 "DELETED.KildesystemID " +
-                                ", DELETED.Adresse" +
-                                ", DELETED.HusNr" +
-                                ", DELETED.Etage" +
-                                ", DELETED.Doer	 " +
-                                ", DELETED.Postnr" +
-                                ", DELETED.[By]" +
-                                ", DELETED.Kildesystem" +
-                                ", '" + BehandlingsStatus.Genkoersel.ToString() + "' " +
-                                ", getdate()" +
-                                "INTO [dbo].[input] " +
-                                " (KildesystemID " +
-                                ", Adresse" +
-                                ", HusNr" +
-                                ", Etage" +
-                                ", Doer	 " +
-                                ", Postnr" +
-                                ", [By]" +
-                                ", Kildesystem" +
-                                ", status" +
-                                ", dato) " +
-                                "WHERE STATUS = '" + BehandlingsStatus.Fejlet.ToString() + "' ";
-
-
-            int result1 = submitQuery(queryString, null);
-
-            string restartRowStuckedInProgress = "UPDATE  [dbo].[input]  " +
-                                " SET [STATUS] =  '" + BehandlingsStatus.Genkoersel.ToString() + "' " +
-                                ", [Dato] = getdate()" +
-                                " WHERE STATUS in ('" + BehandlingsStatus.Behandler.ToString() + "','" + BehandlingsStatus.Fejlet.ToString() + "') ";
-
-            int result2 = submitQuery(restartRowStuckedInProgress, null);
+            databaseService.SettingDatabaseConnection();
         }
 
         public class AdresseResultat
@@ -645,16 +564,6 @@ namespace Client
             Behandler,
             Fejlet,
             Genkoersel
-        }
-        //static string formatAdresse(dynamic adresse)
-        //{
-        //	return string.Format("{0} {1} {2} {3}, {4} {5}", adresse.adgangsadresse.vejstykke.navn, adresse.adgangsadresse.husnr, adresse.etage, adresse.dør, adresse.adgangsadresse.postnummer.nr, adresse.adgangsadresse.postnummer.navn);
-        //}
-        public static bool isOtherInstanceRunning()
-        {
-            //Check if other instance of this program is running on the system
-            return System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1;
-
         }
 
     }
