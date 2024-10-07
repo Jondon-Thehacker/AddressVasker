@@ -251,9 +251,7 @@ namespace Client
                 Console.WriteLine(queryString);
                 try
                 {
-                    //Console.WriteLine("Openning Connection ...");
                     conn.Open();
-                    //Console.WriteLine("Connection successful!");
                     using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
                     {
                         if (param != null)
@@ -270,7 +268,7 @@ namespace Client
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Error: " + e.Message);
+                    LogException(e, "Error");
                     return 0;
                 }
             }
@@ -303,8 +301,8 @@ namespace Client
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Error: " + e.Message);
                     string queryUpdate = "UPDATE [dbo].[input] SET STATUS='" + BehandlingsStatus.Fejlet.ToString() + "' WHERE ID=@ID";
+                    LogException(e, "Error");
 
                     foreach (SqlParameter i in paramtere)
                     {
@@ -314,8 +312,6 @@ namespace Client
                             submitQuery(queryUpdate, param);
                         }
                     }
-
-
                     return 0;
                 }
             }
@@ -323,7 +319,6 @@ namespace Client
 
         public void SettingDatabaseConnection()
         {
-            //create instanace of database connection
             string ID = null;
             string KildesystemID = null;
             string Adresse = null;
