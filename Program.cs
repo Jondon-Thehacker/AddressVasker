@@ -87,6 +87,7 @@ namespace Client
                     response.EnsureSuccessStatusCode();
                     string responseBody = response.Content.ReadAsStringAsync().Result;
 
+                    //Console.WriteLine(responseBody);
                     var settings = new JsonSerializerSettings
                     {
                         NullValueHandling = NullValueHandling.Ignore,
@@ -230,7 +231,6 @@ namespace Client
                 if (!reader.HasRows)
                 {
                     Console.WriteLine("No rows!!! Exit");
-                    Console.Read();
                     return false;
                 }
                 return true;
@@ -426,9 +426,6 @@ namespace Client
                     new SqlParameter("@apiCallGPS",adr.apiCallGPS.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
                 };
 
-
-
-
                 InsertRowsAffected = ExecuteNonQuery(queryString, paramtere);
                 //only delete the original row if data has been inserted to output
                 if (InsertRowsAffected > 0)
@@ -441,15 +438,27 @@ namespace Client
                     int deleteQueryResultNumber = ExecuteNonQuery(deleteQuery, param);
 
                 }
-                
-
 
             }
             return rowsTransferred;
-
-
         }
+    }
 
+    public class AdresseResultat
+    {
+        public string Kategori { get; set; }
+        public string darID { get; set; }
+        public string vejnavn { get; set; }
+        public string husnr { get; set; }
+        public string etage { get; set; }
+        public string dør { get; set; }
+        public double latitude { get; set; }
+        public double longitude { get; set; }
+        public string postnrnavn { get; set; }
+        public string postnr { get; set; }
+        public string kommentar { get; set; }
+        public string apiCallAddress { get; set; }
+        public string apiCallGPS { get; set; }
     }
 
     public class Program
@@ -469,11 +478,8 @@ namespace Client
             int rowsTransferred = databaseService.SettingDatabaseConnection();
             DateTime endTime = DateTime.Now;
             TimeSpan totalRuntime = endTime - startTime;
-
+                
             LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime);
-
-            databaseService.SettingDatabaseConnection();
-
         }
 
         private static int LogStartOfRun(string connectionString, DateTime startTime)
@@ -497,6 +503,7 @@ namespace Client
                                  RowsTransferred = @RowsTransferred,
                                  TotalRuntime = @TotalRuntime
                              WHERE LogID = @LogID";
+         
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
@@ -513,22 +520,6 @@ namespace Client
             }
         }
 
-        public class AdresseResultat
-        {
-            public string Kategori { get; set; }
-            public string darID { get; set; }
-            public string vejnavn { get; set; }
-            public string husnr { get; set; }
-            public string etage { get; set; }
-            public string dør { get; set; }
-            public double latitude { get; set; }
-            public double longitude { get; set; }
-            public string postnrnavn { get; set; }
-            public string postnr { get; set; }
-            public string kommentar { get; set; }
-            public string apiCallAddress { get; set; }
-            public string apiCallGPS { get; set; }
-        }
 
         public enum BehandlingsStatus
         {
@@ -539,5 +530,4 @@ namespace Client
         }
 
     }
-
 }
