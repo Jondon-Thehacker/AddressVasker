@@ -526,7 +526,8 @@ namespace Client
             Behandlet,
             Behandler,
             Fejlet,
-            Genkoersel
+            Genkoersel,
+            Timeout
         }
 
     }
