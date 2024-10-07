@@ -14,6 +14,7 @@ using System.Data;
 using Client;
 using static System.Net.Mime.MediaTypeNames;
 using static Client.Program;
+using System.Text;
 
 
 namespace Client
@@ -56,10 +57,18 @@ namespace Client
     public class ApiService
     {
         private readonly HttpClient _client;
+        private readonly StringBuilder _log;
 
-        public ApiService(HttpClient client)
+        public ApiService(HttpClient client, StringBuilder log)
         {
             _client = client;
+            _log = log;
+        }
+
+        private void LogException(Exception ex, string context)
+        {
+            string logMessage = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
+            _log.AppendLine(logMessage); 
         }
 
         public AdresseResultat GetAdresseVask(string query)
@@ -143,7 +152,6 @@ namespace Client
                         Console.WriteLine("status: " + status);
                         Console.WriteLine("getResponse: " + getResponseAddress);
 
-                        // Lookup geo coordinates
                         if ((status != "2" || status != "4") && gpsHref != "")
                         {
                             getResponseGps = gpsHref + "?srid=25832";
@@ -160,13 +168,10 @@ namespace Client
                             }
                             catch (HttpRequestException e)
                             {
-                                Console.WriteLine("Fejlbesked ved hentning af gps koordinater:{0} ", e.Message);
-                                string fejlbesked = "Fejl ved gps data: " + e.Message;
+                                LogException(e, "Fejl ved gps data");
                             }
 
                         }
-                        Console.WriteLine("lat: " + utm_x);
-                        Console.WriteLine("long: " + utm_y);
 
                         // Return results
                         AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
@@ -175,7 +180,6 @@ namespace Client
                         return o;
                     }
 
-                    //if no address found from DAWA, remove 1 argument from the address-query request
                     query = query.Substring(0, query.LastIndexOf(" ") < 0 ? 0 : query.LastIndexOf(" "));
                     i = i - 1;
                 }
@@ -184,40 +188,33 @@ namespace Client
             }
             catch (HttpRequestException e)
             {
-                Console.WriteLine("Message :{0} ", e.Message);
+                //Console.WriteLine("Message :{0} ", e.Message);
                 string fejlbesked = "Fejl: " + e.Message;
+                LogException(e, "HTTP request error");
 
                 return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
 
             }
         }
-        public void SettingAPI(bool debugEnabled, bool consoleOutputOnly, bool consoleOutputDemo, HttpClient client)
-
-        {
-            if (consoleOutputOnly == true)
-            {
-                //quick way to test how the adressevasker will treat a specific address based on user inputs in the console window
-                while (true)
-                {
-                    Console.Write("Indtast Adresse: ");
-                    string var = Console.ReadLine();
-                    GetAdresseVask("betegnelse=" + var); //example of a working address
-                    Console.WriteLine("\n");
-                }
-            }
-        }
-
     }
 
     public class DatabaseService
     {
         private readonly string _connectionString;
         private readonly ApiService _apiService;
+        private StringBuilder _exceptionLog;
 
-        public DatabaseService(string connectionString, ApiService apiService)
+        public DatabaseService(string connectionString, ApiService apiService, StringBuilder log)
         {
             _connectionString = connectionString;
             _apiService = apiService;
+            _exceptionLog = new StringBuilder();
+        }
+
+        private void LogException(Exception ex, string context)
+        {
+            string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n\n";
+            _exceptionLog.AppendLine(exceptionDetails); 
         }
 
         private bool LoopToContinue(string connetionString)
@@ -324,7 +321,6 @@ namespace Client
             }
         }
 
-
         public void SettingDatabaseConnection()
         {
             //create instanace of database connection
@@ -339,6 +335,7 @@ namespace Client
             string Kildesystem = null;
             string status = null;
             DateTime dato = DateTime.Now;
+
 
 
 
@@ -357,19 +354,14 @@ namespace Client
                     try
                     {
                         SqlCommand command = new SqlCommand(queryString1, conn);
-                        //command.Parameters.AddWithValue("@Status", "Behandlet");
 
-                        //Console.WriteLine("Openning Connection ...");
                         conn.Open();
-                        //Console.WriteLine("Connection successful!");
-                        Console.WriteLine(queryString1);
 
                         SqlDataReader reader = command.ExecuteReader();
 
 
                         while (reader.Read())
                         {
-                            //Read Rows
                             ID = reader["ID"].ToString().Trim();
                             KildesystemID = reader["KildesystemID"].ToString().Trim();
                             Adresse = reader["Adresse"].ToString().Trim();
@@ -380,21 +372,11 @@ namespace Client
                             By = reader["By"].ToString().Trim();
                             Kildesystem = reader["Kildesystem"].ToString().Trim();
 
-                            Console.WriteLine("Adresse Information:");
-                            Console.WriteLine("ID: " + ID);
-                            Console.WriteLine("KildesystemID: " + KildesystemID);
-                            Console.WriteLine("Adresse: " + Adresse);
-                            Console.WriteLine("HusNr: " + HusNr);
-                            Console.WriteLine("Etage: " + Etage);
-                            Console.WriteLine("Dør: " + Doer);
-                            Console.WriteLine("Postnr: " + Postnr);
-                            Console.WriteLine("By: " + By);
-                            Console.WriteLine("Kildesystem: " + Kildesystem);
                         }
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine("Error: " + e.Message);
+                        LogException(e, "Error establishing SQL-connection");
                     }
 
                 }
@@ -520,6 +502,7 @@ namespace Client
 
             }
 
+
         }
 
 
@@ -530,15 +513,15 @@ namespace Client
         static void Main(string[] args)
         {
             HttpClient client = new HttpClient();
+            StringBuilder log = new StringBuilder();
             client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
-
             string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
-            ApiService apiService = new ApiService(client);
-
-            DatabaseService databaseService = new DatabaseService(connectionString, apiService);
+            ApiService apiService = new ApiService(client,log);
+            DatabaseService databaseService = new DatabaseService(connectionString, apiService,log);
 
             databaseService.SettingDatabaseConnection();
+
         }
 
         public class AdresseResultat
