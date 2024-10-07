@@ -61,3 +61,14 @@ BEGIN
 		,[ApiCallGPS] [varchar](250) NULL
 	) 
 	END
+
+if not exists (select * from Adressevasker.dbo.sysobjects where name='ExecutionLog' and xtype='U') 
+BEGIN
+	CREATE TABLE [Adressevasker].[dbo].[ExecutionLog](
+		LogID INT IDENTITY(1,1) PRIMARY KEY
+		,StartTime DATETIME NOT NULL
+		,EndTime DATETIME NULL
+		,RowsTransferred INT NULL
+		,TotalRuntime VARCHAR(50) NULL
+	) 
+	END

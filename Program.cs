@@ -73,7 +73,7 @@ namespace Client
 
         public AdresseResultat GetAdresseVask(string query)
         {
-            var i = 4; //4 tries to find a result. remove 1 argument from the address-query request for each try.
+            var i = 4;
             string getResponseAddress = null;
             string getResponseGps = null;
             try
@@ -87,7 +87,6 @@ namespace Client
                     response.EnsureSuccessStatusCode();
                     string responseBody = response.Content.ReadAsStringAsync().Result;
 
-                    //Console.WriteLine(responseBody);
                     var settings = new JsonSerializerSettings
                     {
                         NullValueHandling = NullValueHandling.Ignore,
@@ -173,7 +172,6 @@ namespace Client
 
                         }
 
-                        // Return results
                         AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
 
                         i = 0;
@@ -188,7 +186,6 @@ namespace Client
             }
             catch (HttpRequestException e)
             {
-                //Console.WriteLine("Message :{0} ", e.Message);
                 string fejlbesked = "Fejl: " + e.Message;
                 LogException(e, "HTTP request error");
 
@@ -241,84 +238,38 @@ namespace Client
             }
         }
 
-        private int submitQuery(string q, SqlParameter param)
+        private int ExecuteNonQuery(string query, params SqlParameter[] parameters)
         {
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
+            string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
-            using (SqlConnection conn = new SqlConnection(connetionString))
+            using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                string queryString = q;
-                Console.WriteLine(queryString);
                 try
                 {
                     conn.Open();
-                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
+                    using (SqlCommand command = new SqlCommand(query, conn))
                     {
-                        if (param != null)
+                        if (parameters != null && parameters.Length > 0)
                         {
-                            command.Parameters.Add(param);
-
+                            command.Parameters.AddRange(parameters);
                         }
-                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
-
-                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
-                        return InsertRowsAffected;
+                        int rowsAffected = command.ExecuteNonQuery();
+                        Console.WriteLine($"{rowsAffected} row(s) updated");
+                        return rowsAffected;
                     }
-
                 }
                 catch (Exception e)
                 {
-                    LogException(e, "Error");
-                    return 0;
-                }
-            }
-        }
-        private int submitQuery2(string q, SqlParameter[] paramtere)
-        {
-            string connetionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            using (SqlConnection conn = new SqlConnection(connetionString))
-            {
-                string queryString = q;
-                //Console.WriteLine(queryString);
-                try
-                {
-                    //Console.WriteLine("Openning Connection ...");
-                    conn.Open();
-                    //Console.WriteLine("Connection successful!");
-                    using (SqlCommand command = new SqlCommand(queryString, conn)) //pass SQL query created above and connection
-                    {
-
-                        command.Parameters.AddRange(paramtere);
-
-
-                        int InsertRowsAffected = command.ExecuteNonQuery(); //execute the Query
-
-                        Console.WriteLine(InsertRowsAffected + " row(s) updated");
-                        return InsertRowsAffected;
-                    }
-
-                }
-                catch (Exception e)
-                {
-                    string queryUpdate = "UPDATE [dbo].[input] SET STATUS='" + BehandlingsStatus.Fejlet.ToString() + "' WHERE ID=@ID";
-                    LogException(e, "Error");
-
-                    foreach (SqlParameter i in paramtere)
-                    {
-                        if (i.ParameterName == "@SystemID")
-                        {
-                            SqlParameter param = new SqlParameter("@ID", i.Value.ToString()) { SqlDbType = SqlDbType.Int };
-                            submitQuery(queryUpdate, param);
-                        }
-                    }
+                    LogException(e, "Error executing non-query command");
                     return 0;
                 }
             }
         }
 
-        public void SettingDatabaseConnection()
+        public int SettingDatabaseConnection()
         {
+            int rowsTransferred = 0;
+
             string ID = null;
             string KildesystemID = null;
             string Adresse = null;
@@ -331,11 +282,6 @@ namespace Client
             string status = null;
             DateTime dato = DateTime.Now;
 
-
-
-
-            //husk at lave om for loop
-            //int i = 0;
             while (LoopToContinue(_connectionString))
             {
                 //Continue
@@ -353,7 +299,6 @@ namespace Client
                         conn.Open();
 
                         SqlDataReader reader = command.ExecuteReader();
-
 
                         while (reader.Read())
                         {
@@ -484,22 +429,26 @@ namespace Client
 
 
 
-                InsertRowsAffected = submitQuery2(queryString, paramtere);
+                InsertRowsAffected = ExecuteNonQuery(queryString, paramtere);
                 //only delete the original row if data has been inserted to output
                 if (InsertRowsAffected > 0)
                 {
+                    rowsTransferred += InsertRowsAffected;
+
                     //Slet Input adresse
                     string deleteQuery = "DELETE FROM [dbo].[input] WHERE ID=@ID";
                     SqlParameter param = new SqlParameter("@ID", ID) { SqlDbType = SqlDbType.Int };
-                    int deleteQueryResultNumber = submitQuery(deleteQuery, param);
+                    int deleteQueryResultNumber = ExecuteNonQuery(deleteQuery, param);
 
                 }
+                
+
 
             }
+            return rowsTransferred;
 
 
         }
-
 
     }
 
@@ -515,8 +464,53 @@ namespace Client
             ApiService apiService = new ApiService(client,log);
             DatabaseService databaseService = new DatabaseService(connectionString, apiService,log);
 
+            DateTime startTime = DateTime.Now;
+            int logId = LogStartOfRun(connectionString, startTime);
+            int rowsTransferred = databaseService.SettingDatabaseConnection();
+            DateTime endTime = DateTime.Now;
+            TimeSpan totalRuntime = endTime - startTime;
+
+            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime);
+
             databaseService.SettingDatabaseConnection();
 
+        }
+
+        private static int LogStartOfRun(string connectionString, DateTime startTime)
+        {
+            string query = "INSERT INTO [dbo].[ExecutionLog] (StartTime) OUTPUT INSERTED.LogID VALUES (@StartTime)";
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, conn))
+                {
+                    command.Parameters.Add(new SqlParameter("@StartTime", startTime));
+                    conn.Open();
+                    return (int)command.ExecuteScalar();
+                }
+            }
+        }
+
+        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime)
+        {
+            string query = @"UPDATE [dbo].[ExecutionLog]
+                             SET EndTime = @EndTime, 
+                                 RowsTransferred = @RowsTransferred,
+                                 TotalRuntime = @TotalRuntime
+                             WHERE LogID = @LogID";
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, conn))
+                {
+                    command.Parameters.Add(new SqlParameter("@EndTime", endTime));
+                    command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
+                    command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
+                    command.Parameters.Add(new SqlParameter("@LogID", logId));
+
+                    conn.Open();
+                    command.ExecuteNonQuery();
+                }
+            }
         }
 
         public class AdresseResultat
