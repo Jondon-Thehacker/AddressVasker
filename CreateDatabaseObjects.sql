@@ -70,5 +70,6 @@ BEGIN
 		,EndTime DATETIME NULL
 		,RowsTransferred INT NULL
 		,TotalRuntime VARCHAR(50) NULL
+		,Log VARCHAR(MAX) NULL
 	) 
 	END

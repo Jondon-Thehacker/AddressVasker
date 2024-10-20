@@ -9,14 +9,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\createdatabaseobjects.sql||{3B902123-F8A7-4915-9F01-361F908088D0}",
       "RelativeMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|solutionrelative:createdatabaseobjects.sql||{3B902123-F8A7-4915-9F01-361F908088D0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\address2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|solutionrelative:address2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\address1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|solutionrelative:address1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -36,7 +28,7 @@
               "RelativeDocumentMoniker": "Program.cs",
               "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Program.cs",
               "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAABQAAAAAAAAAAAAqwD4AAAAsAAAAAAAAAA==",
+              "ViewState": "AgIAANYBAAAAAAAAAAAIwOsBAABbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-09-18T11:58:11.804Z",
               "IsPinned": true,
@@ -50,35 +42,9 @@
               "RelativeDocumentMoniker": "CreateDatabaseObjects.sql",
               "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\CreateDatabaseObjects.sql",
               "RelativeToolTip": "CreateDatabaseObjects.sql",
-              "ViewState": "AgIAABsAAAAAAAAAAAAAACoAAAAcAAAAAAAAAA==",
+              "ViewState": "AgIAACYAAAAAAAAAAAAQwCsAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000826|",
-              "WhenOpened": "2024-10-02T13:52:38.175Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "Address1.cs",
-              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Address1.cs",
-              "RelativeDocumentMoniker": "Address1.cs",
-              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Address1.cs",
-              "RelativeToolTip": "Address1.cs",
-              "ViewState": "AgIAAAwAAAAAAAAAAAA1wAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-10-02T12:40:43.533Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "Address2.cs",
-              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Address2.cs",
-              "RelativeDocumentMoniker": "Address2.cs",
-              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Address2.cs",
-              "RelativeToolTip": "Address2.cs",
-              "ViewState": "AgIAAAMAAAAAAAAAAAAAALAAAAAWAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-10-02T12:40:38.506Z",
+              "WhenOpened": "2024-10-20T09:41:48.2Z",
               "EditorCaption": ""
             }
           ]

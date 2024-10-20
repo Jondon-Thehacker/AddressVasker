@@ -15,6 +15,7 @@ using Client;
 using static System.Net.Mime.MediaTypeNames;
 using static Client.Program;
 using System.Text;
+using System.Threading;
 
 
 namespace Client
@@ -54,22 +55,29 @@ namespace Client
         }
     }
 
+    public static class Logger
+    {
+        public static void LogException(Exception ex, string context, StringBuilder log = null)
+        {
+            string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
+
+            if (log != null)
+            {
+                log.AppendLine("; " + exceptionDetails);
+            }
+        }
+    }
+
     public class ApiService
     {
         private readonly HttpClient _client;
-        private readonly StringBuilder _log;
 
-        public ApiService(HttpClient client, StringBuilder log)
+
+        public ApiService(HttpClient client)
         {
             _client = client;
-            _log = log;
         }
 
-        private void LogException(Exception ex, string context)
-        {
-            string logMessage = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
-            _log.AppendLine(logMessage); 
-        }
 
         public AdresseResultat GetAdresseVask(string query)
         {
@@ -168,7 +176,7 @@ namespace Client
                             }
                             catch (HttpRequestException e)
                             {
-                                LogException(e, "Fejl ved gps data");
+                                Logger.LogException(e, "Error with gps data in GetAdresseVask()");
                             }
 
                         }
@@ -188,7 +196,7 @@ namespace Client
             catch (HttpRequestException e)
             {
                 string fejlbesked = "Fejl: " + e.Message;
-                LogException(e, "HTTP request error");
+                Logger.LogException(e, "HTTP request error in GetAdresseVask()");
 
                 return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
 
@@ -200,20 +208,15 @@ namespace Client
     {
         private readonly string _connectionString;
         private readonly ApiService _apiService;
-        private StringBuilder _exceptionLog;
 
-        public DatabaseService(string connectionString, ApiService apiService, StringBuilder log)
+
+        public DatabaseService(string connectionString, ApiService apiService)
         {
             _connectionString = connectionString;
             _apiService = apiService;
-            _exceptionLog = new StringBuilder();
+
         }
 
-        private void LogException(Exception ex, string context)
-        {
-            string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n\n";
-            _exceptionLog.AppendLine(exceptionDetails); 
-        }
 
         private bool LoopToContinue(string connetionString)
         {
@@ -222,19 +225,23 @@ namespace Client
                 string queryString1 = "SELECT top 1 [ID] FROM [dbo].[Input] WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "','" + BehandlingsStatus.Behandler.ToString() + "')";
                 SqlCommand command = new SqlCommand(queryString1, conn);
 
-                //Console.WriteLine("Openning Connection ...");
-                conn.Open();
-                //Console.WriteLine("Connection successful!");
-
-                SqlDataReader reader = command.ExecuteReader();
-
-                if (!reader.HasRows)
+                try
                 {
-                    Console.WriteLine("No rows!!! Exit");
-                    return false;
-                }
-                return true;
+                    conn.Open();
+                    SqlDataReader reader = command.ExecuteReader();
 
+                    if (!reader.HasRows)
+                    {
+                        Console.WriteLine("No rows!!! Exit");
+                        return false;
+                    }
+                    return true;
+                }
+                catch (SqlException sqlEx)
+                {
+                    Logger.LogException(sqlEx, "Error opening SQL connection in LoopToContinue()");
+                    return false; 
+                }
             }
         }
 
@@ -260,7 +267,7 @@ namespace Client
                 }
                 catch (Exception e)
                 {
-                    LogException(e, "Error executing non-query command");
+                    Logger.LogException(e, "Error executing non-query command in ExecuteNonQuery()");
                     return 0;
                 }
             }
@@ -316,7 +323,7 @@ namespace Client
                     }
                     catch (Exception e)
                     {
-                        LogException(e, "Error establishing SQL-connection");
+                        Logger.LogException(e, "Error establishing SQL-connection in SettingDatabaseConnection()");
                     }
 
                 }
@@ -440,6 +447,7 @@ namespace Client
                 }
 
             }
+
             return rowsTransferred;
         }
     }
@@ -470,16 +478,19 @@ namespace Client
             client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
             string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
-            ApiService apiService = new ApiService(client,log);
-            DatabaseService databaseService = new DatabaseService(connectionString, apiService,log);
+            ApiService apiService = new ApiService(client);
+            DatabaseService databaseService = new DatabaseService(connectionString, apiService);
 
             DateTime startTime = DateTime.Now;
             int logId = LogStartOfRun(connectionString, startTime);
             int rowsTransferred = databaseService.SettingDatabaseConnection();
+
             DateTime endTime = DateTime.Now;
             TimeSpan totalRuntime = endTime - startTime;
                 
-            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime);
+            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime,log);
+
+            Console.ReadLine();
         }
 
         private static int LogStartOfRun(string connectionString, DateTime startTime)
@@ -487,16 +498,29 @@ namespace Client
             string query = "INSERT INTO [dbo].[ExecutionLog] (StartTime) OUTPUT INSERTED.LogID VALUES (@StartTime)";
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                using (SqlCommand command = new SqlCommand(query, conn))
+                try
                 {
-                    command.Parameters.Add(new SqlParameter("@StartTime", startTime));
-                    conn.Open();
-                    return (int)command.ExecuteScalar();
+                    using (SqlCommand command = new SqlCommand(query, conn))
+                    {
+                        command.Parameters.Add(new SqlParameter("@StartTime", startTime));
+                        conn.Open();
+                        return (int)command.ExecuteScalar();
+                    }
+                }
+                catch (SqlException sqlEx)
+                {
+                    Logger.LogException(sqlEx, "Error logging end of run in LogStartOfRun()");
+                    return -1;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogException(ex, "Unexpected error logging end of run LogStartOfRun()");
+                    return -1;
                 }
             }
         }
 
-        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime)
+        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime,StringBuilder log)
         {
             string query = @"UPDATE [dbo].[ExecutionLog]
                              SET EndTime = @EndTime, 
@@ -507,19 +531,30 @@ namespace Client
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                using (SqlCommand command = new SqlCommand(query, conn))
+                try
                 {
-                    command.Parameters.Add(new SqlParameter("@EndTime", endTime));
-                    command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
-                    command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
-                    command.Parameters.Add(new SqlParameter("@LogID", logId));
-
-                    conn.Open();
-                    command.ExecuteNonQuery();
+                    using (SqlCommand command = new SqlCommand(query, conn))
+                    {
+                        command.Parameters.Add(new SqlParameter("@EndTime", endTime));
+                        command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
+                        command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
+                        command.Parameters.Add(new SqlParameter("@Log",log.ToString()));
+                        command.Parameters.Add(new SqlParameter("@LogID", logId));
+                        
+                        conn.Open();
+                        command.ExecuteNonQuery();
+                    }
+                }
+                catch (SqlException sqlEx)
+                {
+                    Logger.LogException(sqlEx, "Error logging end of run in LogEndOfRun()");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogException(ex, "Unexpected error logging end of run LogEndOfRun()");
                 }
             }
         }
-
 
         public enum BehandlingsStatus
         {
