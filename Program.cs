@@ -56,6 +56,53 @@ namespace Client
         }
     }
 
+    public class CircuitBreaker
+    {
+        private readonly int _failureThreshold;   // Max number of failures before opening circuit
+        private readonly TimeSpan _openTimeout;   // Time to wait before retrying after circuit opens
+        private int _failureCount;                // Current count of consecutive failures
+        private DateTime _lastFailureTime;        // Time of the last failure
+        private bool _isOpen;                     // Is the circuit currently open?
+
+        public CircuitBreaker(int failureThreshold, TimeSpan openTimeout)
+        {
+            _failureThreshold = failureThreshold;
+            _openTimeout = openTimeout;
+            _failureCount = 0;
+            _lastFailureTime = DateTime.MinValue;
+            _isOpen = false;
+        }
+
+        public bool IsOpen()
+        {
+            if (_isOpen && DateTime.Now - _lastFailureTime > _openTimeout)
+            {
+                _isOpen = false;
+                _failureCount = 0; 
+            }
+            return _isOpen;
+        }
+
+        public void RegisterFailure()
+        {
+            _failureCount++;
+            _lastFailureTime = DateTime.Now;
+
+            if (_failureCount >= _failureThreshold)
+            {
+                // Open the circuit when failure threshold is met
+                _isOpen = true;
+                Logger.LogException(new Exception("Circuit breaker opened"), "Too many consecutive timeouts. Circuit breaker opened.");
+            }
+        }
+
+        public void Reset()
+        {
+            _failureCount = 0;
+            _isOpen = false;
+        }
+    }
+
     public static class Logger
     {
         private static readonly StringBuilder _globalLog = new StringBuilder();
@@ -64,8 +111,8 @@ namespace Client
         {
             string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
 
-                _globalLog.AppendLine("; " + exceptionDetails);
-            
+            _globalLog.AppendLine("; " + exceptionDetails);
+
         }
         public static string GetLog()
         {
@@ -98,111 +145,111 @@ namespace Client
                     try
                     {
 
-                    
-                    HttpResponseMessage response = _client.GetAsync(url).Result;
-                    response.EnsureSuccessStatusCode();
-                    string responseBody = response.Content.ReadAsStringAsync().Result;
 
-                    //Console.WriteLine(responseBody);
-                    var settings = new JsonSerializerSettings
-                    {
-                        NullValueHandling = NullValueHandling.Ignore,
-                        MissingMemberHandling = MissingMemberHandling.Ignore
-                    };
+                        HttpResponseMessage response = _client.GetAsync(url).Result;
+                        response.EnsureSuccessStatusCode();
+                        string responseBody = response.Content.ReadAsStringAsync().Result;
 
-                    DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
-
-                    if (adresseJson.resultater.Count != 0)
-                    {
-                        string kategori = adresseJson.kategori.EmptyIfNull().ToString();
-
-                        string status = "0";
-                        string DarID = null;
-                        string vejnavn = null;
-                        string husnr = null;
-                        string etage = null;
-                        string dør = null;
-                        string postnr = null;
-                        string postnrnavn = null;
-                        string gpsHref = null;
-                        double utm_x = 0;
-                        double utm_y = 0;
-                        string kommentar = null;
-
-                        // Get address information from aktueladresse or adresse json tags
-                        if (adresseJson.resultater[0].aktueladresse != null)
+                        //Console.WriteLine(responseBody);
+                        var settings = new JsonSerializerSettings
                         {
-                            DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
-                            vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString();
-                            husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString();
-                            etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString();
-                            dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString();
-                            postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString();
-                            postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString();
-                            status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString();
-                            gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString();
-                        }
-                        else
+                            NullValueHandling = NullValueHandling.Ignore,
+                            MissingMemberHandling = MissingMemberHandling.Ignore
+                        };
+
+                        DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
+
+                        if (adresseJson.resultater.Count != 0)
                         {
-                            DarID = adresseJson.resultater[0].adresse.id.EmptyIfNull().ToString();
-                            vejnavn = adresseJson.resultater[0].adresse.vejnavn.EmptyIfNull().ToString();
-                            husnr = adresseJson.resultater[0].adresse.husnr.EmptyIfNull().ToString();
-                            etage = adresseJson.resultater[0].adresse.etage.EmptyIfNull().ToString();
-                            dør = adresseJson.resultater[0].adresse.dør.EmptyIfNull().ToString();
-                            postnr = adresseJson.resultater[0].adresse.postnr.EmptyIfNull().ToString();
-                            postnrnavn = adresseJson.resultater[0].adresse.postnrnavn.EmptyIfNull().ToString();
-                            status = adresseJson.resultater[0].adresse.status.ToString();
-                            gpsHref = adresseJson.resultater[0].adresse.href.EmptyIfNull().ToString();
-                            kommentar = "Ingen aktuel adresse";
+                            string kategori = adresseJson.kategori.EmptyIfNull().ToString();
+
+                            string status = "0";
+                            string DarID = null;
+                            string vejnavn = null;
+                            string husnr = null;
+                            string etage = null;
+                            string dør = null;
+                            string postnr = null;
+                            string postnrnavn = null;
+                            string gpsHref = null;
+                            double utm_x = 0;
+                            double utm_y = 0;
+                            string kommentar = null;
+
+                            // Get address information from aktueladresse or adresse json tags
+                            if (adresseJson.resultater[0].aktueladresse != null)
+                            {
+                                DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
+                                vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString();
+                                husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString();
+                                etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString();
+                                dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString();
+                                postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString();
+                                postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString();
+                                status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString();
+                                gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString();
+                            }
+                            else
+                            {
+                                DarID = adresseJson.resultater[0].adresse.id.EmptyIfNull().ToString();
+                                vejnavn = adresseJson.resultater[0].adresse.vejnavn.EmptyIfNull().ToString();
+                                husnr = adresseJson.resultater[0].adresse.husnr.EmptyIfNull().ToString();
+                                etage = adresseJson.resultater[0].adresse.etage.EmptyIfNull().ToString();
+                                dør = adresseJson.resultater[0].adresse.dør.EmptyIfNull().ToString();
+                                postnr = adresseJson.resultater[0].adresse.postnr.EmptyIfNull().ToString();
+                                postnrnavn = adresseJson.resultater[0].adresse.postnrnavn.EmptyIfNull().ToString();
+                                status = adresseJson.resultater[0].adresse.status.ToString();
+                                gpsHref = adresseJson.resultater[0].adresse.href.EmptyIfNull().ToString();
+                                kommentar = "Ingen aktuel adresse";
+                            }
+                            getResponseAddress = _client.BaseAddress.ToString() + url;
+
+                            Console.WriteLine("Kategori: " + kategori);
+                            Console.WriteLine("DAR-ID: " + DarID);
+                            Console.WriteLine("vejnavn: " + vejnavn);
+                            Console.WriteLine("husnr: " + husnr);
+                            Console.WriteLine("etage: " + etage);
+                            Console.WriteLine("dør: " + dør);
+                            Console.WriteLine("postnr: " + postnr);
+                            Console.WriteLine("postnrnavn: " + postnrnavn);
+                            Console.WriteLine("status: " + status);
+                            Console.WriteLine("getResponse: " + getResponseAddress);
+
+
+
+                            if ((status != "2" || status != "4") && gpsHref != "")
+                            {
+                                getResponseGps = gpsHref + "?srid=25832";
+                                try
+                                {
+                                    HttpResponseMessage response1 = _client.GetAsync(getResponseGps).Result;
+                                    response1.EnsureSuccessStatusCode();
+                                    string responseBody1 = response1.Content.ReadAsStringAsync().Result;
+
+                                    DawaDotnetClient2.Root koordinatJson = JsonConvert.DeserializeObject<DawaDotnetClient2.Root>(responseBody1, settings);
+
+                                    utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
+                                    utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
+                                }
+                                catch (TaskCanceledException e)
+                                {
+                                    // This will be triggered if the request times out
+                                    Logger.LogException(e, $"Timeout error when requesting GPS data in GetAdresseVask() for {getResponseGps}");
+                                    kommentar = "Timeout occurred while fetching GPS data.";
+                                }
+                                catch (HttpRequestException e)
+                                {
+                                    // Log any other HTTP request exceptions
+                                    Logger.LogException(e, $"Error with GPS data in GetAdresseVask() for {getResponseGps}");
+                                }
+
+                            }
+
+                            AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
+
+                            i = 0;
+                            return o;
                         }
-                        getResponseAddress = _client.BaseAddress.ToString() + url;
-
-                        Console.WriteLine("Kategori: " + kategori);
-                        Console.WriteLine("DAR-ID: " + DarID);
-                        Console.WriteLine("vejnavn: " + vejnavn);
-                        Console.WriteLine("husnr: " + husnr);
-                        Console.WriteLine("etage: " + etage);
-                        Console.WriteLine("dør: " + dør);
-                        Console.WriteLine("postnr: " + postnr);
-                        Console.WriteLine("postnrnavn: " + postnrnavn);
-                        Console.WriteLine("status: " + status);
-                        Console.WriteLine("getResponse: " + getResponseAddress);
-
-                       
-
-                        if ((status != "2" || status != "4") && gpsHref != "")
-                        {
-                            getResponseGps = gpsHref + "?srid=25832";
-                            try
-                            {
-                                HttpResponseMessage response1 = _client.GetAsync(getResponseGps).Result;
-                                response1.EnsureSuccessStatusCode();
-                                string responseBody1 = response1.Content.ReadAsStringAsync().Result;
-
-                                DawaDotnetClient2.Root koordinatJson = JsonConvert.DeserializeObject<DawaDotnetClient2.Root>(responseBody1, settings);
-
-                                utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
-                                utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
-                            }
-                            catch (TaskCanceledException e)
-                            {
-                                // This will be triggered if the request times out
-                                Logger.LogException(e, $"Timeout error when requesting GPS data in GetAdresseVask() for {getResponseGps}");
-                                kommentar = "Timeout occurred while fetching GPS data.";
-                            }
-                            catch (HttpRequestException e)
-                            {
-                                // Log any other HTTP request exceptions
-                                Logger.LogException(e, $"Error with GPS data in GetAdresseVask() for {getResponseGps}");
-                            }
-
-                        }
-
-                        AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-                        i = 0;
-                        return o;
-                    }
                     }
                     catch (HttpRequestException e)
                     {
@@ -213,7 +260,7 @@ namespace Client
                             apiCallAddress = getResponseAddress
                         };
                     }
-                    catch (TaskCanceledException e) 
+                    catch (TaskCanceledException e)
                     {
                         Logger.LogException(e, $"Request to {url} timed out.");
                         return new AdresseResultat
@@ -222,7 +269,7 @@ namespace Client
                             apiCallAddress = getResponseAddress
                         };
                     }
-                    catch (Exception e) 
+                    catch (Exception e)
                     {
                         Logger.LogException(e, $"Unexpected error when requesting {url}");
                         return new AdresseResultat
@@ -283,7 +330,7 @@ namespace Client
                 catch (SqlException sqlEx)
                 {
                     Logger.LogException(sqlEx, "Error opening SQL connection in LoopToContinue()");
-                    return false; 
+                    return false;
                 }
             }
         }
@@ -532,7 +579,7 @@ namespace Client
             DateTime endTime = DateTime.Now;
             TimeSpan totalRuntime = endTime - startTime;
 
-            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime,Logger.GetLog());
+            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime, Logger.GetLog());
 
             Console.ReadLine();
         }
@@ -564,7 +611,7 @@ namespace Client
             }
         }
 
-        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime,String log)
+        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime, String log)
         {
             string query = @"UPDATE [dbo].[ExecutionLog]
                              SET EndTime = @EndTime, 
@@ -572,7 +619,7 @@ namespace Client
                                  TotalRuntime = @TotalRuntime,
                                  Log = @Log   
                              WHERE LogID = @LogID";
-         
+
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
@@ -583,9 +630,9 @@ namespace Client
                         command.Parameters.Add(new SqlParameter("@EndTime", endTime));
                         command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
                         command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
-                        command.Parameters.Add(new SqlParameter("@Log",log));
+                        command.Parameters.Add(new SqlParameter("@Log", log));
                         command.Parameters.Add(new SqlParameter("@LogID", logId));
-                        
+
                         conn.Open();
                         command.ExecuteNonQuery();
                     }
