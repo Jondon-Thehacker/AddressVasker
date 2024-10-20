@@ -16,6 +16,7 @@ using static System.Net.Mime.MediaTypeNames;
 using static Client.Program;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace Client
@@ -57,14 +58,18 @@ namespace Client
 
     public static class Logger
     {
-        public static void LogException(Exception ex, string context, StringBuilder log = null)
+        private static readonly StringBuilder _globalLog = new StringBuilder();
+
+        public static void LogException(Exception ex, string context)
         {
             string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
 
-            if (log != null)
-            {
-                log.AppendLine("; " + exceptionDetails);
-            }
+                _globalLog.AppendLine("; " + exceptionDetails);
+            
+        }
+        public static string GetLog()
+        {
+            return _globalLog.ToString();
         }
     }
 
@@ -72,12 +77,10 @@ namespace Client
     {
         private readonly HttpClient _client;
 
-
         public ApiService(HttpClient client)
         {
             _client = client;
         }
-
 
         public AdresseResultat GetAdresseVask(string query)
         {
@@ -88,9 +91,14 @@ namespace Client
             {
                 while (i > 0)
                 {
+
                     string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
                     Console.WriteLine("GET " + url);
 
+                    try
+                    {
+
+                    
                     HttpResponseMessage response = _client.GetAsync(url).Result;
                     response.EnsureSuccessStatusCode();
                     string responseBody = response.Content.ReadAsStringAsync().Result;
@@ -160,6 +168,8 @@ namespace Client
                         Console.WriteLine("status: " + status);
                         Console.WriteLine("getResponse: " + getResponseAddress);
 
+                       
+
                         if ((status != "2" || status != "4") && gpsHref != "")
                         {
                             getResponseGps = gpsHref + "?srid=25832";
@@ -174,9 +184,16 @@ namespace Client
                                 utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
                                 utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
                             }
+                            catch (TaskCanceledException e)
+                            {
+                                // This will be triggered if the request times out
+                                Logger.LogException(e, $"Timeout error when requesting GPS data in GetAdresseVask() for {getResponseGps}");
+                                kommentar = "Timeout occurred while fetching GPS data.";
+                            }
                             catch (HttpRequestException e)
                             {
-                                Logger.LogException(e, "Error with gps data in GetAdresseVask()");
+                                // Log any other HTTP request exceptions
+                                Logger.LogException(e, $"Error with GPS data in GetAdresseVask() for {getResponseGps}");
                             }
 
                         }
@@ -185,6 +202,34 @@ namespace Client
 
                         i = 0;
                         return o;
+                    }
+                    }
+                    catch (HttpRequestException e)
+                    {
+                        Logger.LogException(e, $"HTTP error when requesting {url}");
+                        return new AdresseResultat
+                        {
+                            kommentar = $"HTTP request failed: {e.Message}",
+                            apiCallAddress = getResponseAddress
+                        };
+                    }
+                    catch (TaskCanceledException e) 
+                    {
+                        Logger.LogException(e, $"Request to {url} timed out.");
+                        return new AdresseResultat
+                        {
+                            kommentar = "Request timed out.",
+                            apiCallAddress = getResponseAddress
+                        };
+                    }
+                    catch (Exception e) 
+                    {
+                        Logger.LogException(e, $"Unexpected error when requesting {url}");
+                        return new AdresseResultat
+                        {
+                            kommentar = "An unexpected error occurred in GetAdresseVask",
+                            apiCallAddress = getResponseAddress
+                        };
                     }
 
                     query = query.Substring(0, query.LastIndexOf(" ") < 0 ? 0 : query.LastIndexOf(" "));
@@ -209,14 +254,12 @@ namespace Client
         private readonly string _connectionString;
         private readonly ApiService _apiService;
 
-
         public DatabaseService(string connectionString, ApiService apiService)
         {
             _connectionString = connectionString;
             _apiService = apiService;
 
         }
-
 
         private bool LoopToContinue(string connetionString)
         {
@@ -474,6 +517,7 @@ namespace Client
         static void Main(string[] args)
         {
             HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(5); //Timeout
             StringBuilder log = new StringBuilder();
             client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
             string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
@@ -487,8 +531,8 @@ namespace Client
 
             DateTime endTime = DateTime.Now;
             TimeSpan totalRuntime = endTime - startTime;
-                
-            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime,log);
+
+            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime,Logger.GetLog());
 
             Console.ReadLine();
         }
@@ -520,12 +564,13 @@ namespace Client
             }
         }
 
-        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime,StringBuilder log)
+        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime,String log)
         {
             string query = @"UPDATE [dbo].[ExecutionLog]
                              SET EndTime = @EndTime, 
                                  RowsTransferred = @RowsTransferred,
-                                 TotalRuntime = @TotalRuntime
+                                 TotalRuntime = @TotalRuntime,
+                                 Log = @Log   
                              WHERE LogID = @LogID";
          
 
@@ -538,7 +583,7 @@ namespace Client
                         command.Parameters.Add(new SqlParameter("@EndTime", endTime));
                         command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
                         command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
-                        command.Parameters.Add(new SqlParameter("@Log",log.ToString()));
+                        command.Parameters.Add(new SqlParameter("@Log",log));
                         command.Parameters.Add(new SqlParameter("@LogID", logId));
                         
                         conn.Open();
