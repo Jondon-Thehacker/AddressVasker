@@ -58,48 +58,81 @@ namespace Client
 
     public class CircuitBreaker
     {
-        private readonly int _failureThreshold;   // Max number of failures before opening circuit
-        private readonly TimeSpan _openTimeout;   // Time to wait before retrying after circuit opens
-        private int _failureCount;                // Current count of consecutive failures
-        private DateTime _lastFailureTime;        // Time of the last failure
-        private bool _isOpen;                     // Is the circuit currently open?
+        private readonly int _failureThreshold;   
+        private readonly TimeSpan _openTimeout;   
+        private readonly int _maxRetryLimit;      
+        private int _failureCount;                
+        private int _retryCount;                  
+        private DateTime _lastFailureTime;        
+        private bool _isOpen;                     
+        private bool _isPermanentlyOpen;          
 
-        public CircuitBreaker(int failureThreshold, TimeSpan openTimeout)
+        public CircuitBreaker(int failureThreshold, TimeSpan openTimeout, int maxRetryLimit)
         {
             _failureThreshold = failureThreshold;
             _openTimeout = openTimeout;
+            _maxRetryLimit = maxRetryLimit;
             _failureCount = 0;
+            _retryCount = 0;
             _lastFailureTime = DateTime.MinValue;
             _isOpen = false;
+            _isPermanentlyOpen = false;
         }
 
         public bool IsOpen()
         {
+            if (_isPermanentlyOpen) return true;
+
             if (_isOpen && DateTime.Now - _lastFailureTime > _openTimeout)
             {
-                _isOpen = false;
-                _failureCount = 0; 
+                if (_retryCount >= _maxRetryLimit)
+                {
+                    _isPermanentlyOpen = true;
+                    Logger.LogException(new Exception("Circuit breaker permanently opened"), "Max retry limit reached. Circuit breaker is now permanently open.");
+                    return true;
+                }
+
+                _isOpen = false;  
+                _failureCount = 0;
+                _retryCount++;
             }
+
             return _isOpen;
+        }
+
+        public bool CanRetry()
+        {
+            return _retryCount < _maxRetryLimit;
         }
 
         public void RegisterFailure()
         {
+            if (_isPermanentlyOpen) return;
+
             _failureCount++;
             _lastFailureTime = DateTime.Now;
 
             if (_failureCount >= _failureThreshold)
             {
-                // Open the circuit when failure threshold is met
                 _isOpen = true;
-                Logger.LogException(new Exception("Circuit breaker opened"), "Too many consecutive timeouts. Circuit breaker opened.");
+                Logger.LogException(new Exception("Circuit breaker opened"), "Too many consecutive failures. Circuit breaker opened.");
             }
         }
 
         public void Reset()
         {
-            _failureCount = 0;
-            _isOpen = false;
+            if (!_isPermanentlyOpen)
+            {
+                _failureCount = 0;
+                _retryCount = 0;
+                _isOpen = false;
+            }
+        }
+
+        public TimeSpan GetopenTimeout()
+        {
+            return _openTimeout;
+
         }
     }
 
@@ -123,10 +156,12 @@ namespace Client
     public class ApiService
     {
         private readonly HttpClient _client;
+        private readonly CircuitBreaker _circuitBreaker;
 
-        public ApiService(HttpClient client)
+        public ApiService(HttpClient client, CircuitBreaker circuitBreaker)
         {
             _client = client;
+            _circuitBreaker = circuitBreaker;
         }
 
         public AdresseResultat GetAdresseVask(string query)
@@ -272,6 +307,7 @@ namespace Client
                     catch (Exception e)
                     {
                         Logger.LogException(e, $"Unexpected error when requesting {url}");
+                        _circuitBreaker.RegisterFailure();
                         return new AdresseResultat
                         {
                             kommentar = "An unexpected error occurred in GetAdresseVask",
@@ -300,11 +336,13 @@ namespace Client
     {
         private readonly string _connectionString;
         private readonly ApiService _apiService;
+        private readonly CircuitBreaker _circuitBreaker;
 
-        public DatabaseService(string connectionString, ApiService apiService)
+        public DatabaseService(string connectionString, ApiService apiService, CircuitBreaker circuitBreaker)
         {
             _connectionString = connectionString;
             _apiService = apiService;
+            _circuitBreaker = circuitBreaker;
 
         }
 
@@ -379,8 +417,17 @@ namespace Client
             string status = null;
             DateTime dato = DateTime.Now;
 
-            while (LoopToContinue(_connectionString))
+
+
+            while (LoopToContinue(_connectionString) && _circuitBreaker.CanRetry())
             {
+
+                if (_circuitBreaker.IsOpen())
+                {
+                    Logger.LogException(new Exception("Circuit breaker open"), "Waiting for the open timeout to retry...");
+                    Thread.Sleep(_circuitBreaker.GetopenTimeout());  // Wait for the open timeout
+                    continue;  // After waiting, retry the loop
+                }
                 //Continue
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
@@ -564,13 +611,17 @@ namespace Client
         static void Main(string[] args)
         {
             HttpClient client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(5); //Timeout
+            client.Timeout = TimeSpan.FromSeconds(5);
+            int failureThreshold = 3;
+            TimeSpan openTimeout = TimeSpan.FromSeconds(8);
+            int maxRetryLimit = 3;
             StringBuilder log = new StringBuilder();
             client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
             string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
-            ApiService apiService = new ApiService(client);
-            DatabaseService databaseService = new DatabaseService(connectionString, apiService);
+            CircuitBreaker circuitBreaker = new CircuitBreaker(failureThreshold, openTimeout, maxRetryLimit);
+            ApiService apiService = new ApiService(client, circuitBreaker);
+            DatabaseService databaseService = new DatabaseService(connectionString, apiService, circuitBreaker);
 
             DateTime startTime = DateTime.Now;
             int logId = LogStartOfRun(connectionString, startTime);

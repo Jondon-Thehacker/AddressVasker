@@ -7,7 +7,7 @@
       "RelativeMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\createdatabaseobjects.sql||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "AbsoluteMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|C:\\Users\\Jonat\\source\\repos\\AddressVasker\\createdatabaseobjects.sql||{3B902123-F8A7-4915-9F01-361F908088D0}",
       "RelativeMoniker": "D:0:0:{9340B0CE-6DC1-4D6F-8D5A-FF808BFD159B}|AddressVasker.csproj|solutionrelative:createdatabaseobjects.sql||{3B902123-F8A7-4915-9F01-361F908088D0}"
     }
   ],
@@ -28,7 +28,7 @@
               "RelativeDocumentMoniker": "Program.cs",
               "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Program.cs",
               "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAADgCAAAAAAAAAAAmwFoCAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAB8AAAAAAAAAAIA2wGkCAAA0AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2024-09-18T11:58:11.804Z",
               "IsPinned": true,
@@ -44,8 +44,7 @@
               "RelativeToolTip": "CreateDatabaseObjects.sql",
               "ViewState": "AgIAACYAAAAAAAAAAAAQwCsAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000826|",
-              "WhenOpened": "2024-10-20T09:41:48.2Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-10-20T09:41:48.2Z"
             }
           ]
         }
