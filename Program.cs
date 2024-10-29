@@ -58,14 +58,14 @@ namespace Client
 
     public class CircuitBreaker
     {
-        private readonly int _failureThreshold;   
-        private readonly TimeSpan _openTimeout;   
-        private readonly int _maxRetryLimit;      
-        private int _failureCount;                
-        private int _retryCount;                  
-        private DateTime _lastFailureTime;        
-        private bool _isOpen;                     
-        private bool _isPermanentlyOpen;          
+        private readonly int _failureThreshold;
+        private readonly TimeSpan _openTimeout;
+        private readonly int _maxRetryLimit;
+        private int _failureCount;
+        private int _retryCount;
+        private DateTime _lastFailureTime;
+        private bool _isOpen;
+        private bool _isPermanentlyOpen;
 
         public CircuitBreaker(int failureThreshold, TimeSpan openTimeout, int maxRetryLimit)
         {
@@ -92,7 +92,7 @@ namespace Client
                     return true;
                 }
 
-                _isOpen = false;  
+                _isOpen = false;
                 _failureCount = 0;
                 _retryCount++;
             }
