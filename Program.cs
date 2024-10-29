@@ -1,23 +1,16 @@
 ﻿using System;
-using System.Net.Http;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Diagnostics;
-using System.IO;
-using DawaDotnetClient1;
-using DawaDotnetClient2;
-using System.Data.SqlClient;
+using System.Collections.Generic;
 using System.Configuration;
-using Microsoft.SqlServer.Server;
-using System.Linq;
 using System.Data;
-using Client;
-using static System.Net.Mime.MediaTypeNames;
-using static Client.Program;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using DawaDotnetClient1;
+using Newtonsoft.Json;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Client
 {
@@ -29,30 +22,18 @@ namespace Client
         }
     }
 
-    static class nongeneric
+    public static class StringExtensions
     {
-        public static string EmptyIfNull(this string self)
-        {
-            return self ?? "";
-        }
-        public static string WithMaxLength(this string value, int maxLength)
-        {
-            return value?.Substring(0, Math.Min(value.Length, maxLength));
-        }
+        public static string EmptyIfNull(this string self) => self ?? "";
+        public static string WithMaxLength(this string value, int maxLength) => value?.Substring(0, Math.Min(value.Length, maxLength));
         public static string ToAlphaNum(this string str)
         {
-            //Fjerner uønskede karakterer i starten og slutningen af en string e.g. ()&*^
             foreach (char ch in str)
             {
                 if (!char.IsLetterOrDigit(ch))
                     str = str.Trim(ch);
             }
             return str;
-
-        }
-        public static void SetParameters(this SqlCommand command, params SqlParameter[] parameters)
-        {
-            command.Parameters.AddRange(parameters);
         }
     }
 
@@ -66,6 +47,7 @@ namespace Client
         private DateTime _lastFailureTime;
         private bool _isOpen;
         private bool _isPermanentlyOpen;
+        private readonly object _lock = new object();
 
         public CircuitBreaker(int failureThreshold, TimeSpan openTimeout, int maxRetryLimit)
         {
@@ -81,412 +63,187 @@ namespace Client
 
         public bool IsOpen()
         {
-            if (_isPermanentlyOpen) return true;
-
-            if (_isOpen && DateTime.Now - _lastFailureTime > _openTimeout)
+            lock (_lock)
             {
-                if (_retryCount >= _maxRetryLimit)
+                if (_isPermanentlyOpen) return true;
+                if (_isOpen && DateTime.Now - _lastFailureTime > _openTimeout)
                 {
-                    _isPermanentlyOpen = true;
-                    Logger.LogException(new Exception("Circuit breaker permanently opened"), "Max retry limit reached. Circuit breaker is now permanently open.");
-                    return true;
+                    if (_retryCount >= _maxRetryLimit)
+                    {
+                        _isPermanentlyOpen = true;
+                        Logger.LogException(new Exception("Circuit breaker permanently opened"), "Max retry limit reached.");
+                        return true;
+                    }
+                    _isOpen = false;
+                    _failureCount = 0;
+                    _retryCount++;
                 }
-
-                _isOpen = false;
-                _failureCount = 0;
-                _retryCount++;
+                return _isOpen;
             }
-
-            return _isOpen;
         }
 
-        public bool CanRetry()
-        {
-            return _retryCount < _maxRetryLimit;
-        }
+        public bool CanRetry() => _retryCount < _maxRetryLimit;
 
         public void RegisterFailure()
         {
-            if (_isPermanentlyOpen) return;
-
-            _failureCount++;
-            _lastFailureTime = DateTime.Now;
-
-            if (_failureCount >= _failureThreshold)
+            lock (_lock)
             {
-                _isOpen = true;
-                Logger.LogException(new Exception("Circuit breaker opened"), "Too many consecutive failures. Circuit breaker opened.");
+                if (_isPermanentlyOpen) return;
+                _failureCount++;
+                _lastFailureTime = DateTime.Now;
+                if (_failureCount >= _failureThreshold)
+                {
+                    _isOpen = true;
+                    Logger.LogException(new Exception("Circuit breaker opened"), "Too many consecutive failures.");
+                }
             }
         }
 
         public void Reset()
         {
-            if (!_isPermanentlyOpen)
+            lock (_lock)
             {
-                _failureCount = 0;
-                _retryCount = 0;
-                _isOpen = false;
+                if (!_isPermanentlyOpen)
+                {
+                    _failureCount = 0;
+                    _retryCount = 0;
+                    _isOpen = false;
+                }
             }
         }
 
-        public TimeSpan GetopenTimeout()
-        {
-            return _openTimeout;
-
-        }
+        public TimeSpan GetOpenTimeout() => _openTimeout;
     }
 
     public static class Logger
     {
         private static readonly StringBuilder _globalLog = new StringBuilder();
+        private static readonly object _logLock = new object();
 
         public static void LogException(Exception ex, string context)
         {
-            string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
-
-            _globalLog.AppendLine("; " + exceptionDetails);
-
+            lock (_logLock)
+            {
+                string exceptionDetails = $"[{DateTime.Now}] {context}: {ex.Message}\nStack Trace:\n{ex.StackTrace}\n";
+                _globalLog.AppendLine("; " + exceptionDetails);
+            }
         }
-        public static string GetLog()
-        {
-            return _globalLog.ToString();
-        }
+
+        public static string GetLog() => _globalLog.ToString();
     }
 
-    public class ApiService
+    public class ApiClient
     {
-        private readonly HttpClient _client;
-        private readonly CircuitBreaker _circuitBreaker;
+        private readonly HttpClient _httpClient;
 
-        public ApiService(HttpClient client, CircuitBreaker circuitBreaker)
+        public ApiClient(HttpClient httpClient)
         {
-            _client = client;
-            _circuitBreaker = circuitBreaker;
+            _httpClient = httpClient;
         }
 
-        public AdresseResultat GetAdresseVask(string query)
+        public async Task<HttpResponseMessage> GetAsync(string url)
         {
-            var i = 4;
-            string getResponseAddress = null;
-            string getResponseGps = null;
-            try
-            {
-                while (i > 0)
-                {
-
-                    string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
-                    Console.WriteLine("GET " + url);
-
-                    try
-                    {
-
-
-                        HttpResponseMessage response = _client.GetAsync(url).Result;
-                        response.EnsureSuccessStatusCode();
-                        string responseBody = response.Content.ReadAsStringAsync().Result;
-
-                        //Console.WriteLine(responseBody);
-                        var settings = new JsonSerializerSettings
-                        {
-                            NullValueHandling = NullValueHandling.Ignore,
-                            MissingMemberHandling = MissingMemberHandling.Ignore
-                        };
-
-                        DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
-
-                        if (adresseJson.resultater.Count != 0)
-                        {
-                            string kategori = adresseJson.kategori.EmptyIfNull().ToString();
-
-                            string status = "0";
-                            string DarID = null;
-                            string vejnavn = null;
-                            string husnr = null;
-                            string etage = null;
-                            string dør = null;
-                            string postnr = null;
-                            string postnrnavn = null;
-                            string gpsHref = null;
-                            double utm_x = 0;
-                            double utm_y = 0;
-                            string kommentar = null;
-
-                            // Get address information from aktueladresse or adresse json tags
-                            if (adresseJson.resultater[0].aktueladresse != null)
-                            {
-                                DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
-                                vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString();
-                                husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString();
-                                etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString();
-                                dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString();
-                                postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString();
-                                postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString();
-                                status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString();
-                                gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString();
-                            }
-                            else
-                            {
-                                DarID = adresseJson.resultater[0].adresse.id.EmptyIfNull().ToString();
-                                vejnavn = adresseJson.resultater[0].adresse.vejnavn.EmptyIfNull().ToString();
-                                husnr = adresseJson.resultater[0].adresse.husnr.EmptyIfNull().ToString();
-                                etage = adresseJson.resultater[0].adresse.etage.EmptyIfNull().ToString();
-                                dør = adresseJson.resultater[0].adresse.dør.EmptyIfNull().ToString();
-                                postnr = adresseJson.resultater[0].adresse.postnr.EmptyIfNull().ToString();
-                                postnrnavn = adresseJson.resultater[0].adresse.postnrnavn.EmptyIfNull().ToString();
-                                status = adresseJson.resultater[0].adresse.status.ToString();
-                                gpsHref = adresseJson.resultater[0].adresse.href.EmptyIfNull().ToString();
-                                kommentar = "Ingen aktuel adresse";
-                            }
-                            getResponseAddress = _client.BaseAddress.ToString() + url;
-
-                            Console.WriteLine("Kategori: " + kategori);
-                            Console.WriteLine("DAR-ID: " + DarID);
-                            Console.WriteLine("vejnavn: " + vejnavn);
-                            Console.WriteLine("husnr: " + husnr);
-                            Console.WriteLine("etage: " + etage);
-                            Console.WriteLine("dør: " + dør);
-                            Console.WriteLine("postnr: " + postnr);
-                            Console.WriteLine("postnrnavn: " + postnrnavn);
-                            Console.WriteLine("status: " + status);
-                            Console.WriteLine("getResponse: " + getResponseAddress);
-
-
-
-                            if ((status != "2" || status != "4") && gpsHref != "")
-                            {
-                                getResponseGps = gpsHref + "?srid=25832";
-                                try
-                                {
-                                    HttpResponseMessage response1 = _client.GetAsync(getResponseGps).Result;
-                                    response1.EnsureSuccessStatusCode();
-                                    string responseBody1 = response1.Content.ReadAsStringAsync().Result;
-
-                                    DawaDotnetClient2.Root koordinatJson = JsonConvert.DeserializeObject<DawaDotnetClient2.Root>(responseBody1, settings);
-
-                                    utm_x = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[0]);
-                                    utm_y = Convert.ToDouble(koordinatJson.adgangsadresse.adgangspunkt.koordinater[1]);
-                                }
-                                catch (TaskCanceledException e)
-                                {
-                                    // This will be triggered if the request times out
-                                    Logger.LogException(e, $"Timeout error when requesting GPS data in GetAdresseVask() for {getResponseGps}");
-                                    kommentar = "Timeout occurred while fetching GPS data.";
-                                }
-                                catch (HttpRequestException e)
-                                {
-                                    // Log any other HTTP request exceptions
-                                    Logger.LogException(e, $"Error with GPS data in GetAdresseVask() for {getResponseGps}");
-                                }
-
-                            }
-
-                            AdresseResultat o = new AdresseResultat { darID = DarID, vejnavn = vejnavn, husnr = husnr, etage = etage, dør = dør, Kategori = kategori, latitude = utm_x, longitude = utm_y, postnr = postnr, postnrnavn = postnrnavn, kommentar = kommentar, apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-                            i = 0;
-                            return o;
-                        }
-                    }
-                    catch (HttpRequestException e)
-                    {
-                        Logger.LogException(e, $"HTTP error when requesting {url}");
-                        return new AdresseResultat
-                        {
-                            kommentar = $"HTTP request failed: {e.Message}",
-                            apiCallAddress = getResponseAddress
-                        };
-                    }
-                    catch (TaskCanceledException e)
-                    {
-                        Logger.LogException(e, $"Request to {url} timed out.");
-                        return new AdresseResultat
-                        {
-                            kommentar = "Request timed out.",
-                            apiCallAddress = getResponseAddress
-                        };
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.LogException(e, $"Unexpected error when requesting {url}");
-                        _circuitBreaker.RegisterFailure();
-                        return new AdresseResultat
-                        {
-                            kommentar = "An unexpected error occurred in GetAdresseVask",
-                            apiCallAddress = getResponseAddress
-                        };
-                    }
-
-                    query = query.Substring(0, query.LastIndexOf(" ") < 0 ? 0 : query.LastIndexOf(" "));
-                    i = i - 1;
-                }
-                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = "Fandt ingen adresse match hos Dawa.", apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
-            catch (HttpRequestException e)
-            {
-                string fejlbesked = "Fejl: " + e.Message;
-                Logger.LogException(e, "HTTP request error in GetAdresseVask()");
-
-                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
+            return await _httpClient.GetAsync(url);
         }
     }
 
-    public class DatabaseService
+    public class ApiDataHandler
+    {
+        private readonly ApiClient _apiClient;
+
+        public ApiDataHandler(ApiClient apiClient)
+        {
+            _apiClient = apiClient;
+        }
+
+        public async Task<AdresseResultat> GetAdresseDataAsync(string query)
+        {
+            string url = "adresser" + (string.IsNullOrEmpty(query) ? "" : $"?{query}");
+            HttpResponseMessage response = await _apiClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            // Deserialize JSON and process as before
+            var settings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore, MissingMemberHandling = MissingMemberHandling.Ignore };
+            DawaDotnetClient1.Root adresseJson = JsonConvert.DeserializeObject<DawaDotnetClient1.Root>(responseBody, settings);
+
+            // Convert `adresseJson` to `AdresseResultat`
+            var result = new AdresseResultat
+            {
+                darID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString(),
+                vejnavn = adresseJson.resultater[0].aktueladresse.vejnavn.EmptyIfNull().ToString(),
+                husnr = adresseJson.resultater[0].aktueladresse.husnr.EmptyIfNull().ToString(),
+                etage = adresseJson.resultater[0].aktueladresse.etage.EmptyIfNull().ToString(),
+                dør = adresseJson.resultater[0].aktueladresse.dør.EmptyIfNull().ToString(),
+                postnr = adresseJson.resultater[0].aktueladresse.postnr.EmptyIfNull().ToString(),
+                postnrnavn = adresseJson.resultater[0].aktueladresse.postnrnavn.EmptyIfNull().ToString(),
+                status = adresseJson.resultater[0].aktueladresse.status.EmptyIfNull().ToString(),
+                gpsHref = adresseJson.resultater[0].aktueladresse.href.EmptyIfNull().ToString()
+            };
+
+            return result;
+        }
+    }
+
+
+
+    public class DatabaseRepository
     {
         private readonly string _connectionString;
-        private readonly ApiService _apiService;
-        private readonly CircuitBreaker _circuitBreaker;
 
-        public DatabaseService(string connectionString, ApiService apiService, CircuitBreaker circuitBreaker)
+        public DatabaseRepository(string connectionString)
         {
             _connectionString = connectionString;
-            _apiService = apiService;
-            _circuitBreaker = circuitBreaker;
-
         }
 
-        private bool LoopToContinue(string connetionString)
+        public async Task<bool> HasPendingInputAsync()
         {
-            using (SqlConnection conn = new SqlConnection(connetionString))
+            using (var conn = new SqlConnection(_connectionString))
             {
-                string queryString1 = "SELECT top 1 [ID] FROM [dbo].[Input] WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "','" + BehandlingsStatus.Behandler.ToString() + "')";
-                SqlCommand command = new SqlCommand(queryString1, conn);
-
-                try
-                {
-                    conn.Open();
-                    SqlDataReader reader = command.ExecuteReader();
-
-                    if (!reader.HasRows)
-                    {
-                        Console.WriteLine("No rows!!! Exit");
-                        return false;
-                    }
-                    return true;
-                }
-                catch (SqlException sqlEx)
-                {
-                    Logger.LogException(sqlEx, "Error opening SQL connection in LoopToContinue()");
-                    return false;
-                }
+                var command = new SqlCommand("SELECT top 1 [ID] FROM [dbo].[Input] WHERE Status not in ('Behandlet', 'Behandler')", conn);
+                await conn.OpenAsync();
+                var reader = await command.ExecuteReaderAsync();
+                return reader.HasRows;
             }
         }
 
-        private int ExecuteNonQuery(string query, params SqlParameter[] parameters)
+        public async Task<List<Record>> FetchPendingRecordsAsync()
         {
-            string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            var records = new List<Record>();
+            using (var conn = new SqlConnection(_connectionString))
             {
-                try
+                string query = "SELECT * FROM [dbo].[Input] WHERE Status NOT IN ('Behandlet', 'Behandler')";
+                using (var command = new SqlCommand(query, conn))
                 {
-                    conn.Open();
-                    using (SqlCommand command = new SqlCommand(query, conn))
+                    await conn.OpenAsync();
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        if (parameters != null && parameters.Length > 0)
+                        while (await reader.ReadAsync())
                         {
-                            command.Parameters.AddRange(parameters);
+                            records.Add(new Record
+                            {
+                                ID = reader["ID"].ToString().Trim(),
+                                KildesystemID = reader["KildesystemID"].ToString().Trim(),
+                                Adresse = reader["Adresse"].ToString().Trim(),
+                                HusNr = reader["HusNr"].ToString().Trim(),
+                                Etage = reader["Etage"].ToString().Trim(),
+                                Doer = reader["Doer"].ToString().Trim(),
+                                Postnr = reader["Postnr"].ToString().Trim(),
+                                By = reader["By"].ToString().Trim(),
+                                Kildesystem = reader["Kildesystem"].ToString().Trim(),
+                            });
                         }
-                        int rowsAffected = command.ExecuteNonQuery();
-                        Console.WriteLine($"{rowsAffected} row(s) updated");
-                        return rowsAffected;
                     }
-                }
-                catch (Exception e)
-                {
-                    Logger.LogException(e, "Error executing non-query command in ExecuteNonQuery()");
-                    return 0;
                 }
             }
+            return records;
         }
 
-        public int SettingDatabaseConnection()
+        public async Task<int> InsertTransformedDataAsync(Record record, AdresseResultat adr)
         {
-            int rowsTransferred = 0;
-
-            string ID = null;
-            string KildesystemID = null;
-            string Adresse = null;
-            string HusNr = null;
-            string Etage = null;
-            string Doer = null;
-            string Postnr = null;
-            string By = null;
-            string Kildesystem = null;
-            string status = null;
-            DateTime dato = DateTime.Now;
-
-
-
-            while (LoopToContinue(_connectionString) && _circuitBreaker.CanRetry())
+            using (var conn = new SqlConnection(_connectionString))
             {
-
-                if (_circuitBreaker.IsOpen())
-                {
-                    Logger.LogException(new Exception("Circuit breaker open"), "Waiting for the open timeout to retry...");
-                    Thread.Sleep(_circuitBreaker.GetopenTimeout());  // Wait for the open timeout
-                    continue;  // After waiting, retry the loop
-                }
-                //Continue
-                using (SqlConnection conn = new SqlConnection(_connectionString))
-                {
-                    string queryString1 = "UPDATE TOP (1) [dbo].[Input] WITH ( readpast, rowlock)" + //(updlock, readpast, rowlock)
-                                            "SET STATUS = '" + BehandlingsStatus.Behandler.ToString() + "', [Dato]=getdate()" +
-                                            "OUTPUT INSERTED.*" +
-                                            "WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "', '" + BehandlingsStatus.Behandler.ToString() + "', '" + BehandlingsStatus.Fejlet.ToString() + "') " +
-                                            "";
-                    try
-                    {
-                        SqlCommand command = new SqlCommand(queryString1, conn);
-
-                        conn.Open();
-
-                        SqlDataReader reader = command.ExecuteReader();
-
-                        while (reader.Read())
-                        {
-                            ID = reader["ID"].ToString().Trim();
-                            KildesystemID = reader["KildesystemID"].ToString().Trim();
-                            Adresse = reader["Adresse"].ToString().Trim();
-                            HusNr = reader["HusNr"].ToString().Trim();
-                            Etage = reader["Etage"].ToString().Trim();
-                            Doer = reader["Doer"].ToString().Trim();
-                            Postnr = reader["Postnr"].ToString().Trim();
-                            By = reader["By"].ToString().Trim();
-                            Kildesystem = reader["Kildesystem"].ToString().Trim();
-
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.LogException(e, "Error establishing SQL-connection in SettingDatabaseConnection()");
-                    }
-
-                }
-
-                string AdresseBetegnelse =
-                    Adresse.ToAlphaNum()
-+ (string.IsNullOrEmpty(HusNr) ? "" : " " + HusNr)
-+ (string.IsNullOrEmpty(Etage) ? "" : " " + Etage)
-                    + (string.IsNullOrEmpty(Doer) ? "" : " " + Doer)
-                    + ","
-                    + (string.IsNullOrEmpty(Postnr) ? "" : " " + Postnr)
-                    + (string.IsNullOrEmpty(By) ? "" : " " + By);
-
-                int InsertRowsAffected = 0;
-                //Hent adresse
-
-                string requestStatus = BehandlingsStatus.Behandlet.ToString();
-                AdresseResultat adr = Adresse.ToAlphaNum() != "" ? _apiService.GetAdresseVask("betegnelse=" + AdresseBetegnelse) : new AdresseResultat(); //avoid api call to address that are invalid (blank)
-                if (adr.darID is null || Adresse.ToAlphaNum() == "")
-                {
-                    requestStatus = BehandlingsStatus.Fejlet.ToString();
-
-                }
-
-                //Indsæt vasket adresse
-                string queryString = "INSERT INTO [dbo].[Output] (  " +
+                string query = "INSERT INTO [dbo].[Output] (  " +
                                         "ID " +
                                         ", KildesystemID " +
                                         ", Adresse" +
@@ -538,54 +295,166 @@ namespace Client
                                         ", @longitude" +
                                         ", @kommentar" +
                                         ", @apiCallAddress" +
-                                        ", @apiCallGPS";
-
-
-
-                SqlParameter[] paramtere = new[]
+                                        ", @apiCallGPS"; // Define your insert query here
+                using (var command = new SqlCommand(query, conn))
                 {
-                    new SqlParameter("@SytemID",ID) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@KildesystemID",KildesystemID) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITAdresse",Adresse) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITHusNr",HusNr) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITEtage",Etage) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITDoer",Doer) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITpostnr",Postnr) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@IDITBy",By) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@Kildesystem",Kildesystem) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@requestStatus",requestStatus) { SqlDbType = SqlDbType.VarChar },
+                    command.Parameters.AddRange(new[]
+                    {
+            new SqlParameter("@ID", record.ID),
+            new SqlParameter("@KildesystemID", record.KildesystemID),
+            new SqlParameter("@Address", record.Adresse),
+            new SqlParameter("@HouseNumber", record.HusNr),
+            new SqlParameter("@Floor", record.Etage),
+            new SqlParameter("@Door", record.Doer),
+            new SqlParameter("@PostalCode", record.Postnr),
+            new SqlParameter("@City", record.By),
+            new SqlParameter("@SourceSystem", record.Kildesystem),
+            new SqlParameter("@Status", "Behandlet"),  // Setting status to "Behandlet" after processing
+            new SqlParameter("@Date", DateTime.Now),
+            
+            // Mapped properties from AdresseResultat
+            new SqlParameter("@DarID", adr.darID),
+            new SqlParameter("@DawaAddress", adr.vejnavn),
+            new SqlParameter("@DawaHouseNumber", adr.husnr),
+            new SqlParameter("@DawaFloor", adr.etage),
+            new SqlParameter("@DawaDoor", adr.dør),
+            new SqlParameter("@DawaPostalCode", adr.postnr),
+            new SqlParameter("@DawaCity", adr.postnrnavn),
+            new SqlParameter("@DawaCategory", adr.Kategori),
+            new SqlParameter("@DawaLatitude", adr.latitude),
+            new SqlParameter("@DawaLongitude", adr.longitude),
+            new SqlParameter("@Comment", adr.kommentar),
+            new SqlParameter("@ApiCallAddress", adr.apiCallAddress),
+            new SqlParameter("@ApiCallGPS", adr.apiCallGPS)
+        });
 
-                    new SqlParameter("@darID",adr.darID.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@vejnavn",adr.vejnavn.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@husnr",adr.husnr.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@etage",adr.etage.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@doer",adr.dør.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@postnr",adr.postnr.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@postnrnavn",adr.postnrnavn.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@Kategori",adr.Kategori.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@latitude",adr.latitude.ToString().Replace(",", ".").EmptyIfNull()) { SqlDbType = SqlDbType.Float },
-                    new SqlParameter("@longitude",adr.longitude.ToString().Replace(",", ".").EmptyIfNull()) { SqlDbType = SqlDbType.Float },
-                    new SqlParameter("@kommentar",adr.kommentar.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@apiCallAddress",adr.apiCallAddress.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                    new SqlParameter("@apiCallGPS",adr.apiCallGPS.EmptyIfNull()) { SqlDbType = SqlDbType.VarChar },
-                };
+                    await conn.OpenAsync();
+                    return await command.ExecuteNonQueryAsync();
+                }
+            }
+        }
 
-                InsertRowsAffected = ExecuteNonQuery(queryString, paramtere);
-                //only delete the original row if data has been inserted to output
-                if (InsertRowsAffected > 0)
+        public async Task<int> DeleteProcessedRecordAsync(string id)
+        {
+            using (var conn = new SqlConnection(_connectionString))
+            {
+                string query = "DELETE FROM [dbo].[Input] WHERE ID = @ID";
+                var command = new SqlCommand(query, conn);
+                command.Parameters.Add(new SqlParameter("@ID", id));
+                await conn.OpenAsync();
+                return await command.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
+    public class DataTransformationService
+    {
+        private readonly ApiDataHandler _apiDataHandler;
+
+        public DataTransformationService(ApiDataHandler apiDataHandler)
+        {
+            _apiDataHandler = apiDataHandler;
+        }
+
+        public async Task<AdresseResultat> ProcessAddressAsync(string address)
+        {
+            string formattedAddress = FormatAddress(address);
+            return !string.IsNullOrEmpty(formattedAddress) ? await _apiDataHandler.GetAdresseDataAsync($"betegnelse={formattedAddress}") : null;
+        }
+
+        private string FormatAddress(string address)
+        {
+            // Format and sanitize the address string
+            return address.Trim();
+        }
+    }
+
+    public class DatabaseService
+    {
+        private readonly DatabaseRepository _dbRepository;
+        private readonly DataTransformationService _dataTransformer;
+        private readonly CircuitBreaker _circuitBreaker;
+
+        public DatabaseService(DatabaseRepository dbRepository, DataTransformationService dataTransformer, CircuitBreaker circuitBreaker)
+        {
+            _dbRepository = dbRepository;
+            _dataTransformer = dataTransformer;
+            _circuitBreaker = circuitBreaker;
+        }
+
+        public async Task<int> SettingDatabaseConnectionParallelAsync()
+        {
+            int rowsTransferred = 0;
+            var semaphore = new SemaphoreSlim(10);  // Limit to 10 concurrent tasks
+            var tasks = new List<Task<int>>();
+
+            while (await _dbRepository.HasPendingInputAsync() && _circuitBreaker.CanRetry())
+            {
+                if (_circuitBreaker.IsOpen())
                 {
-                    rowsTransferred += InsertRowsAffected;
-
-                    //Slet Input adresse
-                    string deleteQuery = "DELETE FROM [dbo].[input] WHERE ID=@ID";
-                    SqlParameter param = new SqlParameter("@ID", ID) { SqlDbType = SqlDbType.Int };
-                    int deleteQueryResultNumber = ExecuteNonQuery(deleteQuery, param);
-
+                    await Task.Delay(_circuitBreaker.GetOpenTimeout());
+                    continue;
                 }
 
+                var records = await _dbRepository.FetchPendingRecordsAsync();
+
+                foreach (var record in records)
+                {
+                    await semaphore.WaitAsync();  // Wait until a slot is available
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            return await ProcessRecordAsync(record);
+                        }
+                        finally
+                        {
+                            semaphore.Release();  // Release the slot
+                        }
+                    }));
+                }
+
+                int[] results = await Task.WhenAll(tasks);
+                rowsTransferred += results.Sum();
             }
 
             return rowsTransferred;
+        }
+
+
+        private async Task<int> ProcessRecordAsync(Record record)
+        {
+            var adr = await _dataTransformer.ProcessAddressAsync(record.Adresse);
+            if (adr == null) return 0;
+
+            int insertResult = await _dbRepository.InsertTransformedDataAsync(record, adr);
+            if (insertResult > 0)
+            {
+                await _dbRepository.DeleteProcessedRecordAsync(record.ID);
+                return 1;  // Returns 1 to indicate successful processing
+            }
+
+            return 0;  // Returns 0 if the record wasn't processed successfully
+        }
+
+    }
+
+    public class Program
+    {
+        static async Task Main(string[] args)
+        {
+            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5), BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/") };
+            var apiClient = new ApiClient(client);
+            var apiDataHandler = new ApiDataHandler(apiClient);
+            var dataTransformer = new DataTransformationService(apiDataHandler);
+
+            string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
+            var dbRepository = new DatabaseRepository(connectionString);
+            var circuitBreaker = new CircuitBreaker(3, TimeSpan.FromSeconds(8), 3);
+            var databaseService = new DatabaseService(dbRepository, dataTransformer, circuitBreaker);
+
+            int rowsTransferred = await databaseService.SettingDatabaseConnectionParallelAsync();
+            Console.WriteLine($"Total Rows Transferred: {rowsTransferred}");
         }
     }
 
@@ -603,110 +472,25 @@ namespace Client
         public string postnr { get; set; }
         public string kommentar { get; set; }
         public string apiCallAddress { get; set; }
+        public string status { get; set; }
         public string apiCallGPS { get; set; }
+        public string gpsHref { get; set; }
     }
-
-    public class Program
+    
+    public class Record
     {
-        static void Main(string[] args)
-        {
-            HttpClient client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(5);
-            int failureThreshold = 3;
-            TimeSpan openTimeout = TimeSpan.FromSeconds(8);
-            int maxRetryLimit = 3;
-            StringBuilder log = new StringBuilder();
-            client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
-            string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
-
-            CircuitBreaker circuitBreaker = new CircuitBreaker(failureThreshold, openTimeout, maxRetryLimit);
-            ApiService apiService = new ApiService(client, circuitBreaker);
-            DatabaseService databaseService = new DatabaseService(connectionString, apiService, circuitBreaker);
-
-            DateTime startTime = DateTime.Now;
-            int logId = LogStartOfRun(connectionString, startTime);
-            int rowsTransferred = databaseService.SettingDatabaseConnection();
-
-            DateTime endTime = DateTime.Now;
-            TimeSpan totalRuntime = endTime - startTime;
-
-            LogEndOfRun(connectionString, logId, rowsTransferred, endTime, totalRuntime, Logger.GetLog());
-
-            Console.ReadLine();
-        }
-
-        private static int LogStartOfRun(string connectionString, DateTime startTime)
-        {
-            string query = "INSERT INTO [dbo].[ExecutionLog] (StartTime) OUTPUT INSERTED.LogID VALUES (@StartTime)";
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                try
-                {
-                    using (SqlCommand command = new SqlCommand(query, conn))
-                    {
-                        command.Parameters.Add(new SqlParameter("@StartTime", startTime));
-                        conn.Open();
-                        return (int)command.ExecuteScalar();
-                    }
-                }
-                catch (SqlException sqlEx)
-                {
-                    Logger.LogException(sqlEx, "Error logging end of run in LogStartOfRun()");
-                    return -1;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogException(ex, "Unexpected error logging end of run LogStartOfRun()");
-                    return -1;
-                }
-            }
-        }
-
-        private static void LogEndOfRun(string connectionString, int logId, int rowsTransferred, DateTime endTime, TimeSpan totalRuntime, String log)
-        {
-            string query = @"UPDATE [dbo].[ExecutionLog]
-                             SET EndTime = @EndTime, 
-                                 RowsTransferred = @RowsTransferred,
-                                 TotalRuntime = @TotalRuntime,
-                                 Log = @Log   
-                             WHERE LogID = @LogID";
-
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                try
-                {
-                    using (SqlCommand command = new SqlCommand(query, conn))
-                    {
-                        command.Parameters.Add(new SqlParameter("@EndTime", endTime));
-                        command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
-                        command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
-                        command.Parameters.Add(new SqlParameter("@Log", log));
-                        command.Parameters.Add(new SqlParameter("@LogID", logId));
-
-                        conn.Open();
-                        command.ExecuteNonQuery();
-                    }
-                }
-                catch (SqlException sqlEx)
-                {
-                    Logger.LogException(sqlEx, "Error logging end of run in LogEndOfRun()");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogException(ex, "Unexpected error logging end of run LogEndOfRun()");
-                }
-            }
-        }
-
-        public enum BehandlingsStatus
-        {
-            Behandlet,
-            Behandler,
-            Fejlet,
-            Genkoersel,
-            Timeout
-        }
-
+        public string ID { get; set; }
+        public string KildesystemID { get; set; }
+        public string Adresse { get; set; }
+        public string HusNr { get; set; }
+        public string Etage { get; set; }
+        public string Doer { get; set; }
+        public string Postnr { get; set; }
+        public string By { get; set; }
+        public string Kildesystem { get; set; }
+        public string Status { get; set; }
+        public DateTime Dato { get; set; }
     }
+
 }
+
