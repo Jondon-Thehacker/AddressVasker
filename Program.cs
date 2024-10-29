@@ -175,7 +175,7 @@ namespace Client
                 {
 
                     string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
-                    Console.WriteLine("GET " + url);
+                    //Console.WriteLine("GET " + url);
 
                     try
                     {
@@ -239,7 +239,7 @@ namespace Client
                             }
                             getResponseAddress = _client.BaseAddress.ToString() + url;
 
-                            Console.WriteLine("Kategori: " + kategori);
+                           /* Console.WriteLine("Kategori: " + kategori);
                             Console.WriteLine("DAR-ID: " + DarID);
                             Console.WriteLine("vejnavn: " + vejnavn);
                             Console.WriteLine("husnr: " + husnr);
@@ -248,7 +248,7 @@ namespace Client
                             Console.WriteLine("postnr: " + postnr);
                             Console.WriteLine("postnrnavn: " + postnrnavn);
                             Console.WriteLine("status: " + status);
-                            Console.WriteLine("getResponse: " + getResponseAddress);
+                            Console.WriteLine("getResponse: " + getResponseAddress);*/
 
 
 
@@ -389,7 +389,7 @@ namespace Client
                             command.Parameters.AddRange(parameters);
                         }
                         int rowsAffected = command.ExecuteNonQuery();
-                        Console.WriteLine($"{rowsAffected} row(s) updated");
+                        //Console.WriteLine($"{rowsAffected} row(s) updated");
                         return rowsAffected;
                     }
                 }
