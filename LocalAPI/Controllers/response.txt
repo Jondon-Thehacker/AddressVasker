@@ -1,0 +1,69 @@
+{
+    "kategori": "B",
+    "resultater": [
+        {
+            "adresse": {
+                "id": "0a3f50a1-52f0-32b8-e044-0003ba298018",
+                "vejnavn": "Tårnblæservej",
+                "adresseringsvejnavn": "Tårnblæservej",
+                "husnr": "11",
+                "supplerendebynavn": null,
+                "postnr": "2400",
+                "postnrnavn": "København NV",
+                "status": 1,
+                "virkningstart": "2009-11-25T00:07:37.000Z",
+                "virkningslut": null,
+                "adgangsadresseid": "0a3f507b-1831-32b8-e044-0003ba298018",
+                "etage": "4",
+                "dør": "th",
+                "href": "https://api.dataforsyningen.dk/adresser/0a3f50a1-52f0-32b8-e044-0003ba298018"
+            },
+            "aktueladresse": {
+                "id": "0a3f50a1-52f0-32b8-e044-0003ba298018",
+                "vejnavn": "Tårnblæservej",
+                "adresseringsvejnavn": "Tårnblæservej",
+                "husnr": "11",
+                "supplerendebynavn": null,
+                "postnr": "2400",
+                "postnrnavn": "København NV",
+                "status": 1,
+                "virkningstart": "2009-11-25T00:07:37.000Z",
+                "virkningslut": null,
+                "adgangsadresseid": "0a3f507b-1831-32b8-e044-0003ba298018",
+                "etage": "4",
+                "dør": "th",
+                "href": "https://api.dataforsyningen.dk/adresser/0a3f50a1-52f0-32b8-e044-0003ba298018"
+            },
+            "vaskeresultat": {
+                "variant": {
+                    "vejnavn": "Tårnblæservej",
+                    "husnr": "11",
+                    "etage": "4",
+                    "dør": "th",
+                    "supplerendebynavn": null,
+                    "postnr": "2400",
+                    "postnrnavn": "København NV"
+                },
+                "afstand": 4,
+                "forskelle": {
+                    "vejnavn": 0,
+                    "husnr": 0,
+                    "postnr": 4,
+                    "postnrnavn": 0,
+                    "etage": 0,
+                    "dør": 0
+                },
+                "parsetadresse": {
+                    "vejnavn": "Tårnblæservej",
+                    "husnr": "11",
+                    "etage": "4",
+                    "dør": "th",
+                    "postnr": "",
+                    "postnrnavn": "københavn NV"
+                },
+                "ukendtetokens": [],
+                "anvendtstormodtagerpostnummer": null
+            }
+        }
+    ]
+}

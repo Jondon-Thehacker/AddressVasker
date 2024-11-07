@@ -1,0 +1,6 @@
+@LocalAPI_HostAddress = http://192.168.0.100:5128
+
+### Get Hello Message
+
+GET {{LocalAPI_HostAddress}}/test
+Accept: application/json
