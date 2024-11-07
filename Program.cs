@@ -170,7 +170,6 @@ namespace Client
         }
     }
 
-
     public class ApiService
     {
         private readonly HttpClient _client;
@@ -187,8 +186,6 @@ namespace Client
             var i = 4;
             string getResponseAddress = null;
             string getResponseGps = null;
-            try
-            {
                 while (i > 0)
                 {
 
@@ -286,13 +283,11 @@ namespace Client
                                 }
                                 catch (TaskCanceledException e)
                                 {
-                                    // This will be triggered if the request times out
                                     Logger.LogException(e, $"Timeout error when requesting GPS data in GetAdresseVask() for {getResponseGps}");
                                     kommentar = "Timeout occurred while fetching GPS data.";
                                 }
                                 catch (HttpRequestException e)
                                 {
-                                    // Log any other HTTP request exceptions
                                     Logger.LogException(e, $"Error with GPS data in GetAdresseVask() for {getResponseGps}");
                                 }
 
@@ -337,16 +332,6 @@ namespace Client
                     i = i - 1;
                 }
                 return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = "Fandt ingen adresse match hos Dawa.", apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
-            catch (HttpRequestException e)
-            {
-                string fejlbesked = "Fejl: " + e.Message;
-                Logger.LogException(e, "HTTP request error in GetAdresseVask()");
-
-                return new AdresseResultat { darID = null, vejnavn = null, husnr = null, etage = null, dør = null, Kategori = null, latitude = 0, longitude = 0, postnr = null, postnrnavn = null, kommentar = fejlbesked.WithMaxLength(240), apiCallAddress = getResponseAddress, apiCallGPS = getResponseGps };
-
-            }
         }
     }
 
@@ -666,25 +651,14 @@ namespace Client
             string query = "INSERT INTO [dbo].[ExecutionLog] (StartTime) OUTPUT INSERTED.LogID VALUES (@StartTime)";
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                try
-                {
+
                     using (SqlCommand command = new SqlCommand(query, conn))
                     {
                         command.Parameters.Add(new SqlParameter("@StartTime", startTime));
                         conn.Open();
                         return (int)command.ExecuteScalar();
                     }
-                }
-                catch (SqlException sqlEx)
-                {
-                    Logger.LogException(sqlEx, "Error logging end of run in LogStartOfRun()");
-                    return -1;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogException(ex, "Unexpected error logging end of run LogStartOfRun()");
-                    return -1;
-                }
+
             }
         }
 
@@ -700,27 +674,17 @@ namespace Client
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                try
-                {
-                    using (SqlCommand command = new SqlCommand(query, conn))
-                    {
-                        command.Parameters.Add(new SqlParameter("@EndTime", endTime));
-                        command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
-                        command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
-                        command.Parameters.Add(new SqlParameter("@Log", log));
-                        command.Parameters.Add(new SqlParameter("@LogID", logId));
 
-                        conn.Open();
-                        command.ExecuteNonQuery();
-                    }
-                }
-                catch (SqlException sqlEx)
+                using (SqlCommand command = new SqlCommand(query, conn))
                 {
-                    Logger.LogException(sqlEx, "Error logging end of run in LogEndOfRun()");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogException(ex, "Unexpected error logging end of run LogEndOfRun()");
+                    command.Parameters.Add(new SqlParameter("@EndTime", endTime));
+                    command.Parameters.Add(new SqlParameter("@RowsTransferred", rowsTransferred));
+                    command.Parameters.Add(new SqlParameter("@TotalRuntime", totalRuntime.ToString()));
+                    command.Parameters.Add(new SqlParameter("@Log", log));
+                    command.Parameters.Add(new SqlParameter("@LogID", logId));
+
+                    conn.Open();
+                    command.ExecuteNonQuery();
                 }
             }
         }
