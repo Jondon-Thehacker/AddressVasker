@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 namespace Adressevasker.IntegrationTests
 {
     [TestClass]
-    public class LocalAPITests
+    public class IntegrationTests
     {
         private Process _apiProcess;
         private HttpClient _httpClient;
@@ -49,17 +49,20 @@ namespace Adressevasker.IntegrationTests
         [TestMethod]
         public async Task Test_ApiEndpoint_PrintJsonResponse()
         {
-            // Arrange
-            var response = await _httpClient.GetAsync("/test");
-            var json = await response.Content.ReadAsStringAsync();
-
             // Act
-            Console.WriteLine("API Response:");
-            Console.WriteLine(json);
+            var response = await _httpClient.GetAsync("");
+            var json = await response.Content.ReadAsStringAsync();
 
             // Assert
             StringAssert.Contains(json, "0a3f50a1-52f0-32b8-e044-0003ba298018");
         }
+
+    }
+
+    [TestClass]
+    public class DatabaseServiceTest
+    {
+        
 
     }
 }
