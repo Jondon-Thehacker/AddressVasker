@@ -3,6 +3,34 @@
   "WorkspaceRootPath": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{93D99159-78A7-46AA-8360-781410BED79C}|Adressevasker.IntegrationTests\\Adressevasker.IntegrationTests.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\adressevasker.integrationtests\\localapitests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{93D99159-78A7-46AA-8360-781410BED79C}|Adressevasker.IntegrationTests\\Adressevasker.IntegrationTests.csproj|solutionrelative:adressevasker.integrationtests\\localapitests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\localapi\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|solutionrelative:localapi\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\localapi\\controllers\\valuescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|solutionrelative:localapi\\controllers\\valuescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\localapi\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|solutionrelative:localapi\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\localapi\\localapi.http||{5703B403-55E7-4C63-8C88-A8F52C7A45C5}",
+      "RelativeMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|solutionrelative:localapi\\localapi.http||{5703B403-55E7-4C63-8C88-A8F52C7A45C5}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\localapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{3507FEC2-AB2D-4040-8901-43479135206E}|LocalAPI\\LocalAPI.csproj|solutionrelative:localapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{93D99159-78A7-46AA-8360-781410BED79C}|Adressevasker.IntegrationTests\\Adressevasker.IntegrationTests.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\adressevasker.integrationtests\\properties\\assemblyinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{93D99159-78A7-46AA-8360-781410BED79C}|Adressevasker.IntegrationTests\\Adressevasker.IntegrationTests.csproj|solutionrelative:adressevasker.integrationtests\\properties\\assemblyinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{C96C3397-8A59-491D-BAE0-B93916471315}|Adressevasker.UnitTests\\Adressevasker.UnitTests.csproj|c:\\users\\jonat\\source\\repos\\addressvasker\\adressevasker.unittests\\unittest1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{C96C3397-8A59-491D-BAE0-B93916471315}|Adressevasker.UnitTests\\Adressevasker.UnitTests.csproj|solutionrelative:adressevasker.unittests\\unittest1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
@@ -14,24 +42,111 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "launchSettings.json",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Properties\\launchSettings.json",
+              "RelativeDocumentMoniker": "LocalAPI\\Properties\\launchSettings.json",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Properties\\launchSettings.json",
+              "RelativeToolTip": "LocalAPI\\Properties\\launchSettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2024-11-15T14:15:29.763Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ValuesController.cs",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Controllers\\ValuesController.cs",
+              "RelativeDocumentMoniker": "LocalAPI\\Controllers\\ValuesController.cs",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Controllers\\ValuesController.cs",
+              "RelativeToolTip": "LocalAPI\\Controllers\\ValuesController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-11-15T14:15:28.119Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Program.cs",
+              "RelativeDocumentMoniker": "LocalAPI\\Program.cs",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\Program.cs",
+              "RelativeToolTip": "LocalAPI\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-11-15T14:15:26.282Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "LocalAPI.http",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\LocalAPI.http",
+              "RelativeDocumentMoniker": "LocalAPI\\LocalAPI.http",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\LocalAPI.http",
+              "RelativeToolTip": "LocalAPI\\LocalAPI.http",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003502|",
+              "WhenOpened": "2024-11-15T14:15:22.306Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\appsettings.json",
+              "RelativeDocumentMoniker": "LocalAPI\\appsettings.json",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\LocalAPI\\appsettings.json",
+              "RelativeToolTip": "LocalAPI\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2024-11-15T14:15:21.375Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "AssemblyInfo.cs",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.IntegrationTests\\Properties\\AssemblyInfo.cs",
+              "RelativeDocumentMoniker": "Adressevasker.IntegrationTests\\Properties\\AssemblyInfo.cs",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.IntegrationTests\\Properties\\AssemblyInfo.cs",
+              "RelativeToolTip": "Adressevasker.IntegrationTests\\Properties\\AssemblyInfo.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-11-15T14:00:52.522Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "LocalAPITests.cs",
+              "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.IntegrationTests\\LocalAPITests.cs",
+              "RelativeDocumentMoniker": "Adressevasker.IntegrationTests\\LocalAPITests.cs",
+              "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.IntegrationTests\\LocalAPITests.cs",
+              "RelativeToolTip": "Adressevasker.IntegrationTests\\LocalAPITests.cs",
+              "ViewState": "AgIAABQAAAAAAAAAAAAkwD8AAABNAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2024-11-15T13:59:17.709Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
               "Title": "UnitTest1.cs",
               "DocumentMoniker": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.UnitTests\\UnitTest1.cs",
               "RelativeDocumentMoniker": "Adressevasker.UnitTests\\UnitTest1.cs",
               "ToolTip": "C:\\Users\\Jonat\\source\\repos\\AddressVasker\\Adressevasker.UnitTests\\UnitTest1.cs",
               "RelativeToolTip": "Adressevasker.UnitTests\\UnitTest1.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2024-11-15T11:01:43.781Z",
+              "WhenOpened": "2024-11-15T13:59:16.831Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{269a02dc-6af8-11d3-bdc4-00c04f688e50}"
             }
           ]
         }

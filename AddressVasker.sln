@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LocalAPI", "LocalAPI\LocalA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Adressevasker.UnitTests", "Adressevasker.UnitTests\Adressevasker.UnitTests.csproj", "{C96C3397-8A59-491D-BAE0-B93916471315}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Adressevasker.IntegrationTests", "Adressevasker.IntegrationTests\Adressevasker.IntegrationTests.csproj", "{93D99159-78A7-46AA-8360-781410BED79C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{C96C3397-8A59-491D-BAE0-B93916471315}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C96C3397-8A59-491D-BAE0-B93916471315}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C96C3397-8A59-491D-BAE0-B93916471315}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93D99159-78A7-46AA-8360-781410BED79C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93D99159-78A7-46AA-8360-781410BED79C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93D99159-78A7-46AA-8360-781410BED79C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93D99159-78A7-46AA-8360-781410BED79C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
