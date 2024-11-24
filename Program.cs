@@ -616,6 +616,7 @@ namespace Client
             HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(5);
             client.BaseAddress = new Uri("https://api.dataforsyningen.dk/datavask/");
+            //client.BaseAddress = new Uri("http://192.168.1.111:5128"); //Testing
             string connectionString = ConfigurationManager.ConnectionStrings["Conn"].ConnectionString;
 
             int failureThreshold = 3;
