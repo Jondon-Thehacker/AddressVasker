@@ -629,7 +629,7 @@ namespace Client
             DateTime startTime = DateTime.Now;
             int logId = LogStartOfRun(connectionString, startTime);
 
-            int numberOfThreads = 40; // Adjust as needed
+            int numberOfThreads = 10; // Adjust as needed
             int totalRowsTransferred = 0;
 
             Parallel.For(0, numberOfThreads, i =>
