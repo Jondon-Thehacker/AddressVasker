@@ -41,6 +41,12 @@ local.properties
 *.user
 *.sln.docstates
 
+# tests 
+.vs/AddresseVasker/v17/TestStore/0/
+.vs/AddresseVasker/v17/
+
+
+
 # Build results
 
 [Dd]ebug/
