@@ -42,7 +42,6 @@ namespace Client
         }
         public static string ToAlphaNum(this string str)
         {
-            //Fjerner uønskede karakterer i starten og slutningen af en string e.g. ()&*^
             foreach (char ch in str)
             {
                 if (!char.IsLetterOrDigit(ch))
@@ -190,7 +189,6 @@ namespace Client
                 {
 
                     string url = "adresser" + (query.Length == 0 ? "" : "?") + query;
-                    //Console.WriteLine("GET " + url);
 
                     try
                     {
@@ -200,7 +198,6 @@ namespace Client
                         response.EnsureSuccessStatusCode();
                         string responseBody = response.Content.ReadAsStringAsync().Result;
 
-                        //Console.WriteLine(responseBody);
                         var settings = new JsonSerializerSettings
                         {
                             NullValueHandling = NullValueHandling.Ignore,
@@ -226,7 +223,6 @@ namespace Client
                             double utm_y = 0;
                             string kommentar = null;
 
-                            // Get address information from aktueladresse or adresse json tags
                             if (adresseJson.resultater[0].aktueladresse != null)
                             {
                                 DarID = adresseJson.resultater[0].aktueladresse.id.EmptyIfNull().ToString();
@@ -253,19 +249,6 @@ namespace Client
                                 kommentar = "Ingen aktuel adresse";
                             }
                             getResponseAddress = _client.BaseAddress.ToString() + url;
-
-                           /* Console.WriteLine("Kategori: " + kategori);
-                            Console.WriteLine("DAR-ID: " + DarID);
-                            Console.WriteLine("vejnavn: " + vejnavn);
-                            Console.WriteLine("husnr: " + husnr);
-                            Console.WriteLine("etage: " + etage);
-                            Console.WriteLine("dør: " + dør);
-                            Console.WriteLine("postnr: " + postnr);
-                            Console.WriteLine("postnrnavn: " + postnrnavn);
-                            Console.WriteLine("status: " + status);
-                            Console.WriteLine("getResponse: " + getResponseAddress);
-
-                            */
 
                             if ((status != "2" || status != "4") && gpsHref != "")
                             {
@@ -393,7 +376,6 @@ namespace Client
                             command.Parameters.AddRange(parameters);
                         }
                         int rowsAffected = command.ExecuteNonQuery();
-                        //Console.WriteLine($"{rowsAffected} row(s) updated");
                         return rowsAffected;
                     }
                 }
@@ -429,13 +411,13 @@ namespace Client
                 if (_circuitBreaker.IsOpen())
                 {
                     Logger.LogException(new Exception("Circuit breaker open"), "Waiting for the open timeout to retry...");
-                    Thread.Sleep(_circuitBreaker.GetopenTimeout());  // Wait for the open timeout
-                    continue;  // After waiting, retry the loop
+                    Thread.Sleep(_circuitBreaker.GetopenTimeout());  
+                    continue;  
                 }
-                //Continue
+
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
-                    string queryString1 = "UPDATE TOP (1) [dbo].[Input] WITH ( readpast, rowlock)" + //(updlock, readpast, rowlock)
+                    string queryString1 = "UPDATE TOP (1) [dbo].[Input] WITH ( readpast, rowlock)" + 
                                             "SET STATUS = '" + BehandlingsStatus.Behandler.ToString() + "', [Dato]=getdate()" +
                                             "OUTPUT INSERTED.*" +
                                             "WHERE Status not in ('" + BehandlingsStatus.Behandlet.ToString() + "', '" + BehandlingsStatus.Behandler.ToString() + "', '" + BehandlingsStatus.Fejlet.ToString() + "') " +
@@ -479,10 +461,9 @@ namespace Client
                     + (string.IsNullOrEmpty(By) ? "" : " " + By);
 
                 int InsertRowsAffected = 0;
-                //Hent adresse
 
                 string requestStatus = BehandlingsStatus.Behandlet.ToString();
-                AdresseResultat adr = Adresse.ToAlphaNum() != "" ? _apiService.GetAdresseVask("betegnelse=" + AdresseBetegnelse) : new AdresseResultat(); //avoid api call to address that are invalid (blank)
+                AdresseResultat adr = Adresse.ToAlphaNum() != "" ? _apiService.GetAdresseVask("betegnelse=" + AdresseBetegnelse) : new AdresseResultat();
                 if (adr.darID is null || Adresse.ToAlphaNum() == "")
                 {
                     requestStatus = BehandlingsStatus.Fejlet.ToString();
@@ -575,12 +556,10 @@ namespace Client
                 };
 
                 InsertRowsAffected = ExecuteNonQuery(queryString, paramtere);
-                //only delete the original row if data has been inserted to output
                 if (InsertRowsAffected > 0)
                 {
                     Interlocked.Add(ref rowsTransferred, InsertRowsAffected);
 
-                    // Delete input address
                     string deleteQuery = "DELETE FROM [dbo].[input] WHERE ID=@ID";
                     SqlParameter param = new SqlParameter("@ID", ID) { SqlDbType = SqlDbType.Int };
                     int deleteQueryResultNumber = ExecuteNonQuery(deleteQuery, param);
@@ -629,7 +608,7 @@ namespace Client
             DateTime startTime = DateTime.Now;
             int logId = LogStartOfRun(connectionString, startTime);
 
-            int numberOfThreads = 10; // Adjust as needed
+            int numberOfThreads = 10;
             int totalRowsTransferred = 0;
 
             Parallel.For(0, numberOfThreads, i =>
